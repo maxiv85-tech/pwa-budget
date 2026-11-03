@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#121212">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
@@ -15,7 +15,8 @@
 <style>
 :root{--bg:#121212;--card:#1e1e1e;--card2:#262626;--text:#fff;--muted:#a3a3a3;--primary:#bb86fc;--expense:#cf6679;--income:#03dac6;--warn:#ffb74d;--line:#303030}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0}
+html,body{margin:0;overscroll-behavior:none;touch-action:pan-x pan-y}
+.sheet{overscroll-behavior:contain}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px}
 #app{max-width:480px;margin:0 auto;padding:16px 16px calc(150px + env(safe-area-inset-bottom))}
 h1{font-size:22px;margin:0 0 14px}
@@ -493,11 +494,15 @@ function openSettings() {
     <label>Символ валюты</label>
     <input id="s_cur" value="${esc(S.settings.currency)}" maxlength="5">
     <div class="chips" style="margin-top:10px">${['₽', '$', '€', '₸', '₴', 'Br', '¥'].map(c => `<div class="chip" data-c="${c}">${c}</div>`).join('')}</div>
+    <label>Обновления приложения</label>
+    <select id="s_upd"><option value="manual" ${S.settings.updateMode === 'auto' ? '' : 'selected'}>Вручную (только по кнопке в «О программе»)</option><option value="auto" ${S.settings.updateMode === 'auto' ? 'selected' : ''}>Автоматически (проверка при запуске)</option></select>
+    <div class="sub" style="white-space:normal;margin-top:6px;line-height:1.5">В ручном режиме приложение само ничего не запрашивает: сайт опрашивается, только когда вы нажмёте «Проверить обновление».</div>
     <button class="btn" id="s_save">Сохранить</button>`);
   root.querySelectorAll('[data-c]').forEach(b => b.onclick = () => root.querySelector('#s_cur').value = b.dataset.c);
   root.querySelector('#s_save').onclick = async () => {
     S.settings.currency = root.querySelector('#s_cur').value.trim() || '₽';
-    await saveSettings(); closeModal(); render();
+    S.settings.updateMode = root.querySelector('#s_upd').value === 'auto' ? 'auto' : 'manual';
+    await saveSettings(); sendMode(); closeModal(); render();
   };
 }
 
@@ -662,11 +667,18 @@ function initAccDrag() {
   if (!list) return;
   list.addEventListener('contextmenu', e => e.preventDefault());
   const items = () => [...list.querySelectorAll(':scope > .menu')];
-  items().forEach(row => row.addEventListener('pointerdown', e => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    const x0 = e.clientX, y0 = e.clientY, pid = e.pointerId;
-    let started = false, startY = y0, lastY = y0, raf = 0, timer = 0;
+  const HOLD = 280, SLOP = 16;          // удержание, мс / допуск дрожания пальца, px
+
+  // Один жест перетаскивания плашки. Источник событий (touch или мышь) вызывает start/move/end.
+  function gesture(row, x0, y0) {
+    let started = false, done = false, startY = y0, lastY = y0, raf = 0, timer = 0, lockY = 0;
     const apply = () => { row.style.transform = `translateY(${lastY - startY}px)`; };
+    const lockScroll = on => {
+      document.documentElement.style.overflow = on ? 'hidden' : '';
+      document.body.style.overflow = on ? 'hidden' : '';
+    };
+    // если движок всё же сдвинул страницу — возвращаем на место
+    const holdScroll = () => { if (Math.abs(window.scrollY - lockY) > 1) window.scrollTo(0, lockY); };
     const update = () => {
       apply();
       for (let guard = 0; guard < 12; guard++) {
@@ -674,7 +686,7 @@ function initAccDrag() {
         const rc = row.getBoundingClientRect(), c = rc.top + rc.height / 2;
         const next = arr[i + 1], prev = arr[i - 1];
         let moved = false;
-        // переставляем соседей, а не саму плашку, чтобы не терять захват указателя
+        // переставляем соседей, а не саму плашку
         if (next) { const nb = next.getBoundingClientRect(); if (c > nb.top + nb.height / 2) { list.insertBefore(next, row); moved = true; } }
         if (!moved && prev) { const pb = prev.getBoundingClientRect(); if (c < pb.top + pb.height / 2) { list.insertBefore(prev, row.nextSibling); moved = true; } }
         if (!moved) break;
@@ -683,52 +695,89 @@ function initAccDrag() {
       }
     };
     const tick = () => {
-      if (!started) return;
+      if (!started || done) return;
+      holdScroll();
       const vh = window.innerHeight; let sp = 0;
       if (lastY < 90) sp = -Math.ceil((90 - lastY) / 6);
       else if (lastY > vh - 150) sp = Math.ceil((lastY - (vh - 150)) / 6);
-      if (sp) { const before = window.scrollY; window.scrollBy(0, sp); const real = window.scrollY - before; if (real) { startY -= real; update(); } }
+      if (sp) {
+        const before = window.scrollY; window.scrollBy(0, sp);
+        const real = window.scrollY - before; lockY = window.scrollY;
+        if (real) { startY -= real; update(); }
+      }
       raf = requestAnimationFrame(tick);
     };
-    const block = ev => { if (started) ev.preventDefault(); };   // пока тащим — страница не прокручивается
-    const cleanup = () => {
-      clearTimeout(timer); cancelAnimationFrame(raf);
-      document.removeEventListener('pointermove', move);
-      document.removeEventListener('pointerup', end);
-      document.removeEventListener('pointercancel', end);
-      document.removeEventListener('touchmove', block);
-    };
     const begin = () => {
-      started = true; startY = lastY;
+      if (done) return;
+      started = true; startY = lastY; lockY = window.scrollY;
+      lockScroll(true);
       row.classList.add('dragging');
-      try { row.setPointerCapture(pid); } catch (_) {}
       if (navigator.vibrate) navigator.vibrate(15);
       raf = requestAnimationFrame(tick);
     };
-    function move(ev) {
-      if (ev.pointerId !== pid) return;
-      lastY = ev.clientY;
-      if (!started) {                                   // сдвинули палец до долгого нажатия — это прокрутка
-        if (Math.abs(ev.clientX - x0) > 10 || Math.abs(ev.clientY - y0) > 10) cleanup();
-        return;
-      }
-      update();
-    }
-    function end(ev) {
-      if (ev && ev.pointerId !== pid) return;
-      const was = started;
-      started = false; cleanup();
-      if (!was) return;                                 // обычное нажатие: откроется карточка счёта
+    function end() {
+      if (done) return false;
+      done = true; clearTimeout(timer); cancelAnimationFrame(raf);
+      if (!started) return false;                         // обычное нажатие или прокрутка
+      lockScroll(false);
       row.style.transform = ''; row.classList.remove('dragging');
       suppressClickUntil = Date.now() + 400;
       saveAccOrder(items().map(x => Number(x.dataset.id)));
+      return true;
     }
-    timer = setTimeout(begin, 380);
-    document.addEventListener('pointermove', move);
-    document.addEventListener('pointerup', end);
-    document.addEventListener('pointercancel', end);
-    document.addEventListener('touchmove', block, { passive: false });
-  }));
+    return {
+      start() { timer = setTimeout(begin, HOLD); },
+      // true — идёт перетаскивание (событие нужно погасить)
+      move(x, y) {
+        if (done) return false;
+        lastY = y;
+        if (!started) { if (Math.abs(x - x0) > SLOP || Math.abs(y - y0) > SLOP) { done = true; clearTimeout(timer); } return false; }
+        holdScroll(); update(); return true;
+      },
+      end, alive: () => !done
+    };
+  }
+
+  items().forEach(row => {
+    // --- пальцем: touch-события (движок Huawei отменяет pointer-события по долгому нажатию) ---
+    let g = null;
+    row.addEventListener('touchstart', e => {
+      if (g) { g.end(); g = null; }
+      if (e.touches.length !== 1) return;
+      const t = e.touches[0];
+      g = gesture(row, t.clientX, t.clientY); g.start();
+    }, { passive: true });
+    // слушатель на самой плашке (а не на document), чтобы preventDefault не игнорировался
+    row.addEventListener('touchmove', e => {
+      if (!g) return;
+      const t = e.touches[0];
+      if (g.move(t.clientX, t.clientY) && e.cancelable) e.preventDefault();
+      if (!g.alive()) g = null;
+    }, { passive: false });
+    const finish = e => {
+      if (!g) return;
+      const was = g.end(); g = null;
+      if (was && e.cancelable) e.preventDefault();       // не открывать карточку счёта после перетаскивания
+    };
+    row.addEventListener('touchend', finish);
+    row.addEventListener('touchcancel', finish);
+
+    // --- мышью: pointer-события ---
+    row.addEventListener('pointerdown', e => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      const mg = gesture(row, e.clientX, e.clientY); mg.start();
+      const mv = ev => { mg.move(ev.clientX, ev.clientY); if (!mg.alive()) off(); };
+      const up = () => { mg.end(); off(); };
+      const off = () => {
+        document.removeEventListener('pointermove', mv);
+        document.removeEventListener('pointerup', up);
+        document.removeEventListener('pointercancel', up);
+      };
+      document.addEventListener('pointermove', mv);
+      document.addEventListener('pointerup', up);
+      document.addEventListener('pointercancel', up);
+    });
+  });
 }
 
 function viewMore() {
@@ -761,7 +810,25 @@ function viewMore() {
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
 
-const APP_VERSION = '1.0';
+const APP_VERSION = '1.1';
+
+/* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
+function sendMode() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.ready.then(reg => {
+    const w = navigator.serviceWorker.controller || reg.active;
+    if (w) w.postMessage({ type: 'mode', mode: S.settings.updateMode === 'auto' ? 'auto' : 'manual' });
+  }).catch(() => {});
+}
+function askSW(msg) {
+  return new Promise(resolve => {
+    const on = e => { if (e.data && e.data.type === 'checked') done(e.data); };
+    const done = r => { navigator.serviceWorker.removeEventListener('message', on); clearTimeout(t); resolve(r); };
+    const t = setTimeout(() => done({ error: true }), 25000);
+    navigator.serviceWorker.addEventListener('message', on);
+    navigator.serviceWorker.controller.postMessage(msg);
+  });
+}
 const HELP = [
   ['🚀 С чего начать', `
     <ol>
@@ -824,6 +891,7 @@ const HELP = [
     <p><b>Можно ли другую валюту?</b> Символ валюты меняется в «Ещё → Настройки». Валюта одна на всё приложение, без пересчёта курсов.</p>
     <p><b>Нужен ли интернет?</b> Нет, приложение работает без сети.</p>
     <p><b>За какой месяц цифры на главной?</b> Общий баланс, счета и кредиты всегда актуальные. «Доходы» и «Расходы» показаны за месяц, выбранный стрелками в карточке баланса (при запуске это текущий). Вкладки «Операции», «Статистика» и «Бюджеты» используют один общий выбор месяца. Нажатие на «Доходы» или «Расходы» на главной открывает статистику за тот месяц, который виден на главной.</p>
+    <p><b>Как обновить приложение?</b> «Ещё → О программе → Проверить обновление» (нужен интернет, запрашиваются только файлы самого приложения). Если хотите, чтобы приложение проверяло обновления само при запуске, включите «Автоматически» в «Ещё → Настройки».</p>
     <p><b>Как выйти из приложения?</b> Внутри раздела во вкладке «Ещё» кнопка «Назад» возвращает к списку пунктов. На любой вкладке нажмите «Назад» два раза подряд: при первом нажатии появится подсказка, при втором приложение закроется.</p>`]
 ];
 
@@ -853,7 +921,12 @@ function viewAbout() {
       <div class="row" style="margin-top:8px"><div class="grow muted">Категорий</div><b>${S.categories.length}</b></div>
       <div class="row" style="margin-top:8px"><div class="grow muted">Операций</div><b>${S.transactions.length}</b></div>
       <div class="row" style="margin-top:8px"><div class="grow muted">Регулярных платежей</div><b>${S.recurring.length}</b></div>
-      <div class="row" style="margin-top:8px"><div class="grow muted">Последняя копия</div><b>${lb}</b></div></div>`;
+      <div class="row" style="margin-top:8px"><div class="grow muted">Последняя копия</div><b>${lb}</b></div></div>
+    <div class="card"><div><b>Обновления</b></div>
+      <div class="sub" style="white-space:normal;margin-top:4px">Режим: ${S.settings.updateMode === 'auto' ? 'автоматически' : 'вручную'} (меняется в «Ещё → Настройки»)</div>
+      <button class="btn sec" data-act="checkUpdate" style="margin-top:12px">Проверить обновление</button>
+      <div id="updStatus" class="sub" style="white-space:normal;margin-top:10px;line-height:1.5"></div>
+      <div class="sub" style="white-space:normal;margin-top:10px;line-height:1.5">При проверке приложение запросит с сайта, откуда оно установлено, только собственные файлы (страницу и иконки). Ваши данные никуда не передаются.</div></div>`;
 }
 
 function viewData() {
@@ -943,6 +1016,16 @@ const ACT = {
   editRec: d => openTxModal(S.recurring.find(r => r.id === Number(d.id)), { recurring: true }),
   exportJSON, exportCSV, wipe,
   importJSON: () => $('#importFile').click(),
+  checkUpdate: async () => {
+    const set = h => { const el = $('#updStatus'); if (el) el.innerHTML = h; };
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return set('Автономный режим сейчас не активен: обновление происходит при обычной загрузке страницы.');
+    set('Проверяем…');
+    const r = await askSW({ type: 'check' });
+    if (r.error) set('Не удалось проверить: нет соединения с сайтом.');
+    else if (r.changed) set('Новая версия загружена. <span class="chip" data-act="reloadApp">Перезапустить</span>');
+    else set('У вас последняя версия.');
+  },
+  reloadApp: () => location.reload(),
   toggleCredit: async () => { S.settings.creditOpen = !S.settings.creditOpen; await saveSettings(); render(); },
   backdrop: () => closeModal()
 };
@@ -954,6 +1037,8 @@ document.addEventListener('click', e => {
   const f = ACT[el.dataset.act];
   if (f) f(el.dataset);
 });
+document.addEventListener('gesturestart', e => e.preventDefault());   // запрет масштабирования жестом (iOS)
+
 // Кнопка ✓ / Enter на клавиатуре: в последнем поле формы — сохранить, в остальных — просто закрыть клавиатуру
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
@@ -984,6 +1069,7 @@ if ('serviceWorker' in navigator) {
     await seed();
     await loadAll();
     await runRecurring();
+    sendMode();
     if (navigator.storage && navigator.storage.persist) navigator.storage.persist();
     render();
   } catch (err) {
