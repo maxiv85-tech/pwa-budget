@@ -109,7 +109,7 @@ details.faq .body ul,details.faq .body ol{margin:0 0 10px;padding-left:20px}
 details.faq .body li{margin-bottom:4px}
 .hl{color:var(--primary);font-weight:600}
 .tip{background:#2a1f3d;border-radius:10px;padding:10px 12px;margin:0 0 10px}
-#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#3a3a3a;color:#fff;padding:10px 18px;border-radius:22px;font-size:14px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none;white-space:normal;text-align:center;line-height:1.4;width:max-content;max-width:calc(100vw - 32px)}
+#toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#3a3a3a;color:#fff;padding:10px 18px;border-radius:22px;font-size:14px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
 #toast.show{opacity:1}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
 </style>
@@ -962,12 +962,6 @@ async function persistInfo() {
    3) обычная загрузка браузера (файл уходит в папку загрузок) с подсказкой на экране.
    Возвращает 'saved' | 'cancelled'. */
 const IS_HUAWEI_BROWSER = /HuaweiBrowser|HMSCore|HuaweiMobile/i.test(navigator.userAgent || '');
-// Эксперимент для браузера Huawei: он показывает сообщение «повторите жест», если страница запрещает масштаб в meta.
-// Масштаб остаётся заблокированным через touch-action и обработку жестов (см. выше), поэтому из meta запрет убираем.
-if (IS_HUAWEI_BROWSER) {
-  const vp = document.querySelector('meta[name="viewport"]');
-  if (vp) vp.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
-}
 async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
   const ext = name.slice(name.lastIndexOf('.'));
@@ -979,51 +973,25 @@ async function saveFile(name, text, mime) {
       flash('Файл сохранён'); return 'saved';
     } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
   }
-  // 2. «Поделиться» с файлом (если canShare нет, просто пробуем — часть браузеров его не объявляет)
-  if (navigator.share) {
+  // 2. «Поделиться» с файлом
+  if (navigator.share && navigator.canShare) {
     const variants = [new File([text], name, { type: baseMime })];
     if (baseMime === 'application/json') variants.push(new File([text], name + '.txt', { type: 'text/plain' }));  // json в списке разрешённых типов не у всех браузеров
     for (const f of variants) {
-      if (navigator.canShare) {
-        let ok = false;
-        try { ok = navigator.canShare({ files: [f] }); } catch (_) {}
-        if (!ok) continue;
-      }
+      let ok = false;
+      try { ok = navigator.canShare({ files: [f] }); } catch (_) {}
+      if (!ok) continue;
       try { await navigator.share({ files: [f], title: f.name }); return 'saved'; }
       catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
     }
   }
-  // 3. в установленном приложении браузера Huawei загрузка файлов не работает — объясняем, что делать
-  if (IS_HUAWEI_BROWSER && IS_STANDALONE) { huaweiAppDialog(name, text, baseMime); return 'cancelled'; }
-  // 4. обычная загрузка браузера (результат из страницы узнать нельзя, поэтому — подсказка)
+  // 3. загрузка браузера
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type: mime }));
   a.download = name; document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
-  flash('Файл отправлен в загрузки браузера', 4000);
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  flash(IS_HUAWEI_BROWSER ? 'Файл отправлен в загрузки. Если его нет — откройте приложение в Chrome' : 'Файл отправлен в загрузки браузера', 4500);
   return 'saved';
-}
-
-function huaweiAppDialog(name, text, baseMime) {
-  const root = modal(`
-    <h2>Сохранение из установленного приложения</h2>
-    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">Браузер Huawei не умеет сохранять файлы из приложения, установленного на рабочий стол. Чтобы сохранить копию:
-      <ol style="margin:8px 0 0;padding-left:20px">
-        <li>Откройте этот сайт в самом браузере Huawei (не с рабочего стола).</li>
-        <li>Зайдите в «Ещё → Данные» и нажмите «Сохранить резервную копию (JSON)». Файл сохранится в «Загрузки».</li>
-      </ol>
-      <div style="margin-top:8px">Проверьте, что там те же данные: число операций на странице «Данные» должно совпасть.</div>
-    </div>
-    <button class="btn sec" id="hw_try">Всё равно попробовать скачать</button>
-    <button class="btn" id="hw_ok">Понятно</button>`);
-  root.querySelector('#hw_try').onclick = () => {
-    const a = document.createElement('a');                       // другой способ, чем blob: data-адрес
-    a.href = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
-    a.download = name; document.body.appendChild(a); a.click();
-    setTimeout(() => a.remove(), 3000);
-    flash('Если файла нет в «Загрузках», сохраните копию через браузер', 5000);
-  };
-  root.querySelector('#hw_ok').onclick = closeModal;
 }
 const backupDone = async () => { S.settings.lastBackup = Date.now(); await saveSettings(); render(); };
 async function exportJSON() {
