@@ -804,8 +804,7 @@ function viewMore() {
 }
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
-
-const APP_VERSION = '1.1.3';
+const APP_VERSION = '1.1.4';
 
 /* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
 function sendMode() {
@@ -983,42 +982,33 @@ function huaweiAppDialog(name, text, baseMime) {
   const root = modal(`
     <h2>Сохранение резервной копии</h2>
     <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
-      Оболочка PWA блокирует фоновое скачивание файлов. Выберите подходящий вариант:
+      Оболочка PWA блокирует прямое скачивание файлов. Используйте один из способов:
     </div>
     
     <a href="${dataUri}" download="${name}" target="_blank" class="btn" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
-      📥 Скачать файл бэкапа
+      📥 Попробовать скачать файл
     </a>
 
-    <button class="btn sec" id="hw_share" style="margin-top:8px">Отправить / Поделиться</button>
-    <button class="btn sec" id="hw_copy" style="margin-top:8px">Скопировать JSON-код в буфер</button>
+    <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
     
-    <div id="copy_status" class="sub" style="text-align:center;margin-top:6px"></div>
+    <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5;"></div>
 
-    <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:8px" id="hw_close">Закрыть</button>
+    <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
   `);
-
-  root.querySelector('#hw_share').onclick = async () => {
-    if (navigator.share && navigator.canShare) {
-      try {
-        const file = new File([text], name, { type: baseMime });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: name });
-          return;
-        }
-      } catch (e) {
-        if (e && e.name === 'AbortError') return;
-      }
-    }
-    root.querySelector('#copy_status').textContent = 'Функция "Поделиться" недоступна в этой системе. Используйте кнопку скачивания или копирования.';
-  };
 
   root.querySelector('#hw_copy').onclick = async () => {
     try {
       await navigator.clipboard.writeText(text);
-      root.querySelector('#copy_status').textContent = '✅ Код скопирован в буфер обмена!';
+      root.querySelector('#copy_status').innerHTML = `
+        <b style="color:var(--income)">✅ Код скопирован!</b><br><br>
+        <b>Как сохранить:</b><br>
+        1. Откройте файловый менеджер (например, «Файлы»).<br>
+        2. Создайте новый текстовый файл.<br>
+        3. Вставьте скопированный код.<br>
+        4. Переименуйте файл в <b>${name}</b> (важно: расширение должно быть .json).
+      `;
     } catch (err) {
-      root.querySelector('#copy_status').textContent = '❌ Не удалось скопировать автоматически';
+      root.querySelector('#copy_status').textContent = '❌ Не удалось скопировать автоматически. Выделите текст вручную.';
     }
   };
 
