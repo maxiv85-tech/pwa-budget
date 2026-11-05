@@ -819,7 +819,7 @@ function viewMore() {
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
 
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 
 /* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
 function sendMode() {
@@ -935,7 +935,10 @@ function viewAbout() {
       <div class="sub" style="white-space:normal;margin-top:4px">Режим: ${S.settings.updateMode === 'auto' ? 'автоматически' : 'вручную'} (меняется в «Ещё → Настройки»)</div>
       <button class="btn sec" data-act="checkUpdate" style="margin-top:12px">Проверить обновление</button>
       <div id="updStatus" class="sub" style="white-space:normal;margin-top:10px;line-height:1.5"></div>
-      <div class="sub" style="white-space:normal;margin-top:10px;line-height:1.5">При проверке приложение запросит с сайта, откуда оно установлено, только собственные файлы (страницу и иконки). Ваши данные никуда не передаются.</div></div>`;
+      <div class="sub" style="white-space:normal;margin-top:10px;line-height:1.5">При проверке приложение запросит с сайта, откуда оно установлено, только собственные файлы (страницу и иконки). Ваши данные никуда не передаются.</div></div>
+    <div class="card"><div><b>Диагностика API сохранения</b></div>
+      <div class="sub" style="white-space:normal;margin-top:4px">Если не работает сохранение, нажмите кнопку — приложение покажет, какие механизмы доступны в этом браузере/оболочке.</div>
+      <button class="btn sec" data-act="diag" style="margin-top:12px">Показать диагностику</button></div>`;
 }
 
 function viewData() {
@@ -959,7 +962,10 @@ async function persistInfo() {
 /* Сохранение файла. Порядок попыток:
    1) системное окно «Сохранить как» (showSaveFilePicker) — компьютеры;
    2) меню «Поделиться» с файлом (Web Share API) — телефоны: там есть «Сохранить как», выбор папки и приложений;
-   3) обычная загрузка браузера (файл уходит в папку загрузок) с подсказкой на экране.
+   3) обычная загрузка браузера (blob + <a download>) — основной путь для PWA на Huawei/EMUI;
+   4) открытие файла в новой вкладке — если скачивание заблокировано, пользователь сохранит через меню браузера;
+   5) data: URL;
+   6) и только затем — диалог с инструкцией.
    Возвращает 'saved' | 'cancelled'. */
 const IS_HUAWEI_BROWSER = /HuaweiBrowser|HMSCore|HuaweiMobile/i.test(navigator.userAgent || '');
 // Эксперимент для браузера Huawei: он показывает сообщение «повторите жест», если страница запрещает масштаб в meta.
@@ -971,6 +977,7 @@ if (IS_HUAWEI_BROWSER) {
 async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
   const ext = name.slice(name.lastIndexOf('.'));
+
   // 1. «Сохранить как»
   if (window.showSaveFilePicker) {
     try {
@@ -979,37 +986,59 @@ async function saveFile(name, text, mime) {
       flash('Файл сохранён'); return 'saved';
     } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
   }
-  // 2. «Поделиться» с файлом (если canShare нет, просто пробуем — часть браузеров его не объявляет)
-  if (navigator.share) {
-    const variants = [new File([text], name, { type: baseMime })];
-    if (baseMime === 'application/json') variants.push(new File([text], name + '.txt', { type: 'text/plain' }));  // json в списке разрешённых типов не у всех браузеров
-    for (const f of variants) {
-      if (navigator.canShare) {
-        let ok = false;
-        try { ok = navigator.canShare({ files: [f] }); } catch (_) {}
-        if (!ok) continue;
-      }
-      try { await navigator.share({ files: [f], title: f.name }); return 'saved'; }
+
+  // 2. «Поделиться» с файлом (только если действительно поддерживается)
+  if (navigator.share && navigator.canShare) {
+    const file = new File([text], name, { type: baseMime });
+    let canShare = false;
+    try { canShare = navigator.canShare({ files: [file] }); } catch (_) {}
+    if (canShare) {
+      try { await navigator.share({ files: [file], title: name }); return 'saved'; }
       catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
     }
   }
-  // 3. в установленном приложении браузера Huawei загрузка файлов не работает — объясняем, что делать
-  if (IS_HUAWEI_BROWSER && IS_STANDALONE) { huaweiAppDialog(name, text, baseMime); return 'cancelled'; }
-  // 4. обычная загрузка браузера (результат из страницы узнать нельзя, поэтому — подсказка)
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
-  a.download = name; document.body.appendChild(a); a.click();
-  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
-  flash('Файл отправлен в загрузки браузера', 4000);
-  return 'saved';
+
+  // 3. Прямая загрузка через blob: + <a download> — основной путь для Huawei PWA
+  try {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 10000);
+    flash('Файл отправлен в загрузки', 4000);
+    return 'saved';
+  } catch (e) { /* идём дальше */ }
+
+  // 4. Открыть в новой вкладке — пользователь сохранит через меню браузера
+  try {
+    const url = URL.createObjectURL(new Blob([text], { type: mime }));
+    const w = window.open(url, '_blank');
+    if (w) { flash('Файл открыт. Сохраните его через меню браузера', 6000); return 'saved'; }
+    URL.revokeObjectURL(url);
+  } catch (e) { /* идём дальше */ }
+
+  // 5. data: URL
+  try {
+    const a = document.createElement('a');
+    a.href = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
+    a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => a.remove(), 3000);
+    flash('Файл отправлен в загрузки', 4000);
+    return 'saved';
+  } catch (e) { /* идём дальше */ }
+
+  // 6. Инструкция
+  huaweiAppDialog(name, text, baseMime);
+  return 'cancelled';
 }
 
 function huaweiAppDialog(name, text, baseMime) {
   const root = modal(`
     <h2>Сохранение из установленного приложения</h2>
-    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">Браузер Huawei не умеет сохранять файлы из приложения, установленного на рабочий стол. Чтобы сохранить копию:
+    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">Похоже, эта оболочка блокирует сохранение файлов из приложения, установленного на рабочий стол. Чтобы сохранить копию:
       <ol style="margin:8px 0 0;padding-left:20px">
-        <li>Откройте этот сайт в самом браузере Huawei (не с рабочего стола).</li>
+        <li>Откройте этот сайт в самом браузере (не с рабочего стола).</li>
         <li>Зайдите в «Ещё → Данные» и нажмите «Сохранить резервную копию (JSON)». Файл сохранится в «Загрузки».</li>
       </ol>
       <div style="margin-top:8px">Проверьте, что там те же данные: число операций на странице «Данные» должно совпасть.</div>
@@ -1017,7 +1046,7 @@ function huaweiAppDialog(name, text, baseMime) {
     <button class="btn sec" id="hw_try">Всё равно попробовать скачать</button>
     <button class="btn" id="hw_ok">Понятно</button>`);
   root.querySelector('#hw_try').onclick = () => {
-    const a = document.createElement('a');                       // другой способ, чем blob: data-адрес
+    const a = document.createElement('a');
     a.href = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
     a.download = name; document.body.appendChild(a); a.click();
     setTimeout(() => a.remove(), 3000);
@@ -1094,6 +1123,17 @@ const ACT = {
   editRec: d => openTxModal(S.recurring.find(r => r.id === Number(d.id)), { recurring: true }),
   exportJSON, exportCSV, wipe,
   importJSON: () => $('#importFile').click(),
+  diag: () => {
+    const info = {
+      standalone: window.matchMedia('(display-mode: standalone)').matches,
+      navigatorStandalone: navigator.standalone,
+      showSaveFilePicker: typeof window.showSaveFilePicker === 'function',
+      share: typeof navigator.share === 'function',
+      canShare: typeof navigator.canShare === 'function',
+      userAgent: navigator.userAgent
+    };
+    alert(JSON.stringify(info, null, 2));
+  },
   checkUpdate: async () => {
     const set = h => { const el = $('#updStatus'); if (el) el.innerHTML = h; };
     if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return set('Автономный режим сейчас не активен: обновление происходит при обычной загрузке страницы.');
