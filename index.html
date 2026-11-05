@@ -804,7 +804,7 @@ function viewMore() {
 }
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
-const APP_VERSION = '1.1.6';
+const APP_VERSION = '1.1.5';
 
 /* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
 function sendMode() {
@@ -986,28 +986,12 @@ function huaweiAppDialog(name, text, baseMime) {
       📥 Попробовать скачать файл
     </a>
 
-    <button class="btn sec" id="hw_share" style="margin-top:8px">📤 Поделиться файлом</button>
     <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
     
     <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
 
     <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
   `);
-
-  root.querySelector('#hw_share').onclick = async () => {
-    if (navigator.share && navigator.canShare) {
-      try {
-        const file = new File([text], name, { type: baseMime });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: name });
-          return;
-        }
-      } catch (e) {
-        if (e && e.name === 'AbortError') return;
-      }
-    }
-    root.querySelector('#copy_status').innerHTML = '<span style="color:var(--warn)">Функция "Поделиться" недоступна в этой системе.</span><br>Используйте кнопку скачивания или копирования.';
-  };
 
   root.querySelector('#hw_copy').onclick = async () => {
     try {
