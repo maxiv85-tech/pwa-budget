@@ -50,7 +50,7 @@ h3{font-size:16px;margin:22px 0 10px;font-weight:600}
 .accs{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}
 .acc{flex:none;min-width:140px;background:var(--card);border-radius:16px;padding:12px 14px;border-left:4px solid var(--primary)}
 .acc .b{font-weight:600;margin-top:4px}
-input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;font-family:inherit}
+input,select,textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;font-family:inherit}
 @supports (-webkit-touch-callout:none){
   input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;min-height:46px;text-align:left}
   input[type=date]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}
@@ -805,7 +805,7 @@ function viewMore() {
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
 
-const APP_VERSION = '1.1.3';
+const APP_VERSION = '1.1.4';
 
 /* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
 function sendMode() {
@@ -939,7 +939,7 @@ function viewData() {
 }
 async function persistInfo() {
   const el = $('#persist'); if (!el || !navigator.storage) return;
-  let p = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+  let p = navigator.storagepersisted ? await navigator.storage.persisted() : false;
   if (!p && navigator.storage.persist) p = await navigator.storage.persist();
   el.textContent = p ? 'включена' : 'не гарантирована';
 }
@@ -955,103 +955,89 @@ async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
   const ext = name.slice(name.lastIndexOf('.'));
 
-  // 1. Через File System Access API (ПК и поддерживающие браузеры)
+  // 1. File System Access API (ПК)
   if (window.showSaveFilePicker) {
     try {
       const h = await window.showSaveFilePicker({ 
         suggestedName: name, 
-        types: [{ description: 'Файл резервной копии', accept: { [baseMime]: [ext] } }] 
+        types: [{ description: 'Файл', accept: { [baseMime]: [ext] } }] 
       });
-      const w = await h.createWritable(); 
-      await w.write(text); 
-      await w.close();
-      flash('Файл успешно сохранён'); 
-      return 'saved';
-    } catch (e) { 
-      if (e && e.name === 'AbortError') return 'cancelled'; 
-    }
+      const w = await h.createWritable(); await w.write(text); await w.close();
+      flash('Файл сохранён'); return 'saved';
+    } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
   }
 
-  // 2. Через системное меню «Поделиться» (идеально для Android, включая Huawei, и iOS)
-  // Позволяет напрямую отправить файл в Telegram, Диск, Загрузки или файловый менеджер.
-  if (navigator.share && navigator.canShare) {
-    try {
-      const file = new File([text], name, { type: baseMime });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: name, text: 'Резервная копия приложения Мой Бюджет' });
-        return 'saved';
-      }
-    } catch (e) {
-      if (e && e.name === 'AbortError') return 'cancelled';
-      // Если пользователь отменил или SHARE API вернул ошибку — идем ниже к резервным вариантам
-    }
+  // 2. Если это Huawei PWA или другой изолированный режим — сразу показываем функциональное окно
+  if (IS_HUAWEI_BROWSER || IS_STANDALONE) {
+    huaweiAppDialog(name, text, baseMime);
+    return 'saved';
   }
 
-  // 3. Прямая загрузка через blob URL (стандартный путь)
+  // 3. Прямая загрузка для обычных вкладок браузера
   try {
     const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
-    
-    // Специальный обход для Huawei PWA, где фоновые клики по <a> блокируются оболочкой
-    if (IS_HUAWEI_BROWSER && IS_STANDALONE) {
-      const w = window.open(url, '_blank');
-      if (w) {
-        flash('Файл открыт. Если он не скачался автоматически, зажмите страницу и выберите «Сохранить»', 7000);
-        return 'saved';
-      }
-    }
-
     const a = document.createElement('a');
-    a.href = url; 
-    a.download = name; 
-    a.style.display = 'none';
-    document.body.appendChild(a); 
-    a.click();
-    setTimeout(() => { 
-      URL.revokeObjectURL(url); 
-      a.remove(); 
-    }, 10000);
-    
+    a.href = url; a.download = name; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 10000);
     flash('Файл отправлен в загрузки', 4000);
     return 'saved';
-  } catch (e) { 
-    // игнорируем и переходим к диалогу 
-  }
+  } catch (e) { /* fallback к диалогу */ }
 
-  // 4. data: URL (последний шанс для скачивания)
-  try {
-    const a = document.createElement('a');
-    a.href = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
-    a.download = name; document.body.appendChild(a); a.click();
-    setTimeout(() => a.remove(), 3000);
-    flash('Файл отправлен в загрузки', 4000);
-    return 'saved';
-  } catch (e) { /* идём дальше */ }
-
-  // 5. Крайний случай для заблокированных систем
   huaweiAppDialog(name, text, baseMime);
-  return 'cancelled';
+  return 'saved';
 }
 
 function huaweiAppDialog(name, text, baseMime) {
   const root = modal(`
-    <h2>Сохранение из установленного приложения</h2>
-    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">Похоже, эта оболочка блокирует сохранение файлов из приложения, установленного на рабочий стол. Чтобы сохранить копию:
-      <ol style="margin:8px 0 0;padding-left:20px">
-        <li>Откройте этот сайт в самом браузере (не с рабочего стола).</li>
-        <li>Зайдите в «Ещё → Данные» и нажмите «Сохранить резервную копию (JSON)». Файл сохранится в «Загрузки».</li>
-      </ol>
-      <div style="margin-top:8px">Проверьте, что там те же данные: число операций на странице «Данные» должно совпасть.</div>
+    <h2>Сохранение резервной копии</h2>
+    <div class="sub" style="white-space:normal;line-height:1.5;margin-top:8px">
+      Оболочка PWA блокирует прямое скачивание файлов. Выберите удобный способ сохранения:
     </div>
-    <button class="btn sec" id="hw_try">Всё равно попробовать скачать</button>
-    <button class="btn" id="hw_ok">Понятно</button>`);
-  root.querySelector('#hw_try').onclick = () => {
-    const a = document.createElement('a');
-    a.href = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
-    a.download = name; document.body.appendChild(a); a.click();
-    setTimeout(() => a.remove(), 3000);
-    flash('Если файла нет в «Загрузках», сохраните копию через браузер', 5000);
+    <button class="btn" id="hw_share" style="margin-top:14px">Отправить / Поделиться</button>
+    <button class="btn sec" id="hw_copy" style="margin-top:10px">Скопировать JSON-код резервной копии</button>
+    <div id="hw_copy_box" style="display:none;margin-top:10px">
+      <textarea id="hw_txt" readonly rows="4" style="font-size:12px;font-family:monospace">${esc(text)}</textarea>
+      <div class="sub" style="margin-top:4px">Вставьте скопированный текст в заметки или файл на телефоне.</div>
+    </div>
+    <button class="btn sec" id="hw_ok" style="margin-top:10px">Закрыть</button>`);
+
+  root.querySelector('#hw_share').onclick = async () => {
+    if (navigator.share) {
+      try {
+        const file = new File([text], name, { type: baseMime });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: name });
+          closeModal();
+          return;
+        } else {
+          await navigator.share({ title: name, text: text });
+          closeModal();
+          return;
+        }
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+      }
+    }
+    flash('Поделиться недоступно, воспользуйтесь копированием');
   };
+
+  root.querySelector('#hw_copy').onclick = () => {
+    const ta = root.querySelector('#hw_txt');
+    root.querySelector('#hw_copy_box').style.display = 'block';
+    ta.select();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        flash('Код копии скопирован в буфер обмена!');
+      }).catch(() => {
+        flash('Выделите и скопируйте текст ниже вручную');
+      });
+    } else {
+      flash('Выделите и скопируйте текст ниже вручную');
+    }
+  };
+
   root.querySelector('#hw_ok').onclick = closeModal;
 }
 const backupDone = async () => { S.settings.lastBackup = Date.now(); await saveSettings(); render(); };
