@@ -155,7 +155,6 @@ let suppressClickUntil = 0;
 const sortAccounts = () => S.accounts.sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
 const now = new Date();
 const U = { tab: 'home', sub: null, month: { y: now.getFullYear(), m: now.getMonth() }, monthX: { y: now.getFullYear(), m: now.getMonth() }, q: '', opsType: 'all', statType: 'expense', statCat: null, catType: 'expense' };
-// у главной свой месяц (для блоков «Доходы» и «Расходы»); у вкладок «Операции», «Статистика» и «Бюджеты» общий
 const M = () => U.tab === 'home' ? U.month : U.monthX;
 
 const EMOJIS = ['🛒','🚗','🏠','☕','💊','👕','🎮','📱','🎁','📦','💼','💻','💰','💳','💵','🏦','✈️','🍔','🍕','🎬','📚','🐶','⚽','🔧','💡','🚌','⛽','👶','💅','🎓','🏋️','🧾','📈','🏷️','🛠️','🎵','🍷','🧴','🚕','❤️'];
@@ -219,7 +218,6 @@ function balances() {
 }
 const monthTx = (y = M().y, m = M().m) => S.transactions.filter(t => t.date.startsWith(mkey(y, m)));
 const sumBy = (arr, type) => r2(arr.filter(t => t.type === type).reduce((s, t) => s + t.amount, 0));
-// операции для статистики/бюджетов: без помеченных «не учитывать», переводы с галочкой «считать расходом» — как расходы
 const statList = arr => arr.filter(t => !t.skip).map(t => t.type === 'transfer' && t.asExpense ? { ...t, type: 'expense' } : t);
 const sortTx = a => a.slice().sort((x, y) => y.date.localeCompare(x.date) || y.id - x.id);
 
@@ -274,9 +272,6 @@ function closeModal() {
   $('#modal').innerHTML = '';
   if (history.state && history.state.m) history.back();
 }
-/* ---- Кнопка «Назад» ----
-   История: [корень] → [приложение]. Нажатие «Назад» возвращает на корень, мы перехватываем его,
-   делаем шаг назад внутри приложения и снова добавляем запись «приложение». */
 let lastBack = 0, toastTimer;
 function flash(msg, ms = 2000) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
@@ -285,16 +280,15 @@ function flash(msg, ms = 2000) {
 const armBack = () => history.pushState({ app: 1 }, '');
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const IS_STANDALONE = navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-const TRAP = !IS_IOS || IS_STANDALONE;     // в обычной вкладке Safari системный «назад» не перехватываем
+const TRAP = !IS_IOS || IS_STANDALONE;
 if (TRAP) history.replaceState({ root: 1 }, '');
-// браузер игнорирует записи истории, добавленные без касаний пользователя, поэтому добавляем при первом нажатии
 if (TRAP) document.addEventListener('click', armBack, { capture: true, once: true });
 window.addEventListener('popstate', () => {
   if (modalOpen) { modalOpen = false; $('#modal').classList.remove('open'); $('#modal').innerHTML = ''; return; }
   if (!(history.state && history.state.root)) return;
   if (U.statCat) { U.statCat = null; render(); armBack(); return; }
   if (U.sub) { U.sub = null; render(); armBack(); return; }
-  if (IS_IOS) { armBack(); return; }          // на iOS приложение «Назад» не закрывает — подсказка про выход не нужна
+  if (IS_IOS) { armBack(); return; }
   const t = Date.now();
   if (t - lastBack < 2000) { history.back(); return; }
   lastBack = t; flash('Нажмите «Назад» ещё раз, чтобы выйти'); armBack();
@@ -630,7 +624,6 @@ function viewStats() {
   const donut = total ? `<svg viewBox="0 0 42 42" style="width:200px;display:block;margin:0 auto"><circle cx="21" cy="21" r="15.9155" fill="none" stroke="#262626" stroke-width="5"/>${segs}
       <text x="21" y="22" text-anchor="middle" fill="#fff" font-size="3.6" font-weight="700">${esc(fmt(total))}</text></svg>` : '<div class="empty">Нет данных за этот месяц</div>';
 
-  // 6 месяцев
   const ms = [];
   for (let i = 5; i >= 0; i--) { const d = new Date(M().y, M().m - i, 1); const t = statList(monthTx(d.getFullYear(), d.getMonth())); ms.push({ l: MONTHS[d.getMonth()].slice(0, 3), i: sumBy(t, 'income'), e: sumBy(t, 'expense') }); }
   const mx = Math.max(1, ...ms.flatMap(x => [x.i, x.e]));
@@ -676,9 +669,8 @@ function initAccDrag() {
   if (!list) return;
   list.addEventListener('contextmenu', e => e.preventDefault());
   const items = () => [...list.querySelectorAll(':scope > .menu')];
-  const HOLD = 280, SLOP = 16;          // удержание, мс / допуск дрожания пальца, px
+  const HOLD = 280, SLOP = 16;
 
-  // Один жест перетаскивания плашки. Источник событий (touch или мышь) вызывает start/move/end.
   function gesture(row, x0, y0) {
     let started = false, done = false, startY = y0, lastY = y0, raf = 0, timer = 0, lockY = 0;
     const apply = () => { row.style.transform = `translateY(${lastY - startY}px)`; };
@@ -686,7 +678,6 @@ function initAccDrag() {
       document.documentElement.style.overflow = on ? 'hidden' : '';
       document.body.style.overflow = on ? 'hidden' : '';
     };
-    // если движок всё же сдвинул страницу — возвращаем на место
     const holdScroll = () => { if (Math.abs(window.scrollY - lockY) > 1) window.scrollTo(0, lockY); };
     const update = () => {
       apply();
@@ -695,7 +686,6 @@ function initAccDrag() {
         const rc = row.getBoundingClientRect(), c = rc.top + rc.height / 2;
         const next = arr[i + 1], prev = arr[i - 1];
         let moved = false;
-        // переставляем соседей, а не саму плашку
         if (next) { const nb = next.getBoundingClientRect(); if (c > nb.top + nb.height / 2) { list.insertBefore(next, row); moved = true; } }
         if (!moved && prev) { const pb = prev.getBoundingClientRect(); if (c < pb.top + pb.height / 2) { list.insertBefore(prev, row.nextSibling); moved = true; } }
         if (!moved) break;
@@ -727,7 +717,7 @@ function initAccDrag() {
     function end() {
       if (done) return false;
       done = true; clearTimeout(timer); cancelAnimationFrame(raf);
-      if (!started) return false;                         // обычное нажатие или прокрутка
+      if (!started) return false;
       lockScroll(false);
       row.style.transform = ''; row.classList.remove('dragging');
       suppressClickUntil = Date.now() + 400;
@@ -736,7 +726,6 @@ function initAccDrag() {
     }
     return {
       start() { timer = setTimeout(begin, HOLD); },
-      // true — идёт перетаскивание (событие нужно погасить)
       move(x, y) {
         if (done) return false;
         lastY = y;
@@ -748,7 +737,6 @@ function initAccDrag() {
   }
 
   items().forEach(row => {
-    // --- пальцем: touch-события (движок Huawei отменяет pointer-события по долгому нажатию) ---
     let g = null;
     row.addEventListener('touchstart', e => {
       if (g) { g.end(); g = null; }
@@ -756,7 +744,6 @@ function initAccDrag() {
       const t = e.touches[0];
       g = gesture(row, t.clientX, t.clientY); g.start();
     }, { passive: true });
-    // слушатель на самой плашке (а не на document), чтобы preventDefault не игнорировался
     row.addEventListener('touchmove', e => {
       if (!g) return;
       const t = e.touches[0];
@@ -766,12 +753,11 @@ function initAccDrag() {
     const finish = e => {
       if (!g) return;
       const was = g.end(); g = null;
-      if (was && e.cancelable) e.preventDefault();       // не открывать карточку счёта после перетаскивания
+      if (was && e.cancelable) e.preventDefault();
     };
     row.addEventListener('touchend', finish);
     row.addEventListener('touchcancel', finish);
 
-    // --- мышью: pointer-события ---
     row.addEventListener('pointerdown', e => {
       if (e.pointerType !== 'mouse' || e.button !== 0) return;
       const mg = gesture(row, e.clientX, e.clientY); mg.start();
@@ -819,7 +805,7 @@ function viewMore() {
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
 
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.1.3';
 
 /* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
 function sendMode() {
@@ -959,26 +945,17 @@ async function persistInfo() {
 }
 
 /* ============ Экспорт / импорт ============ */
-/* Сохранение файла. Порядок попыток:
-   1) системное окно «Сохранить как» (showSaveFilePicker) — компьютеры;
-   2) меню «Поделиться» с файлом (Web Share API) — телефоны: там есть «Сохранить как», выбор папки и приложений;
-   3) обычная загрузка браузера (blob + <a download>) — основной путь для PWA на Huawei/EMUI;
-   4) открытие файла в новой вкладке — если скачивание заблокировано, пользователь сохранит через меню браузера;
-   5) data: URL;
-   6) и только затем — диалог с инструкцией.
-   Возвращает 'saved' | 'cancelled'. */
 const IS_HUAWEI_BROWSER = /HuaweiBrowser|HMSCore|HuaweiMobile/i.test(navigator.userAgent || '');
-// Эксперимент для браузера Huawei: он показывает сообщение «повторите жест», если страница запрещает масштаб в meta.
-// Масштаб остаётся заблокированным через touch-action и обработку жестов (см. выше), поэтому из meta запрет убираем.
 if (IS_HUAWEI_BROWSER) {
   const vp = document.querySelector('meta[name="viewport"]');
   if (vp) vp.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }
+
 async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
   const ext = name.slice(name.lastIndexOf('.'));
 
-  // 1. «Сохранить как»
+  // 1. «Сохранить как» (работает на ПК)
   if (window.showSaveFilePicker) {
     try {
       const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'Файл', accept: { [baseMime]: [ext] } }] });
@@ -987,7 +964,7 @@ async function saveFile(name, text, mime) {
     } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
   }
 
-  // 2. «Поделиться» с файлом (только если действительно поддерживается)
+  // 2. «Поделиться» (работает на iOS и некоторых Android)
   if (navigator.share && navigator.canShare) {
     const file = new File([text], name, { type: baseMime });
     let canShare = false;
@@ -998,10 +975,21 @@ async function saveFile(name, text, mime) {
     }
   }
 
-  // 3. Прямая загрузка через blob: + <a download> — основной путь для Huawei PWA
+  // 3. Прямая загрузка (для обычных вкладок браузера)
   try {
     const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
+    
+    // Для Huawei PWA (ярлык на рабочем столе) стандартное скачивание блокируется.
+    // Открываем в новой вкладке, чтобы пользователь сохранил через меню браузера.
+    if (IS_HUAWEI_BROWSER && IS_STANDALONE) {
+      const w = window.open(url, '_blank');
+      if (w) {
+        flash('Файл открыт в новой вкладке. Сохраните его через меню браузера (⋮ → Скачать)', 7000);
+        return 'saved';
+      }
+    }
+
     const a = document.createElement('a');
     a.href = url; a.download = name; a.style.display = 'none';
     document.body.appendChild(a); a.click();
@@ -1010,15 +998,7 @@ async function saveFile(name, text, mime) {
     return 'saved';
   } catch (e) { /* идём дальше */ }
 
-  // 4. Открыть в новой вкладке — пользователь сохранит через меню браузера
-  try {
-    const url = URL.createObjectURL(new Blob([text], { type: mime }));
-    const w = window.open(url, '_blank');
-    if (w) { flash('Файл открыт. Сохраните его через меню браузера', 6000); return 'saved'; }
-    URL.revokeObjectURL(url);
-  } catch (e) { /* идём дальше */ }
-
-  // 5. data: URL
+  // 4. data: URL (последний шанс для скачивания)
   try {
     const a = document.createElement('a');
     a.href = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
@@ -1028,7 +1008,7 @@ async function saveFile(name, text, mime) {
     return 'saved';
   } catch (e) { /* идём дальше */ }
 
-  // 6. Инструкция
+  // 5. Инструкция (если совсем ничего не вышло)
   huaweiAppDialog(name, text, baseMime);
   return 'cancelled';
 }
@@ -1151,17 +1131,15 @@ document.addEventListener('click', e => {
   if (Date.now() < suppressClickUntil || e.target.closest('.handle')) return;
   const el = e.target.closest('[data-act]');
   if (!el) return;
-  if (el.id === 'modal' && e.target !== el) return; // клик внутри листа — не закрываем
+  if (el.id === 'modal' && e.target !== el) return;
   const f = ACT[el.dataset.act];
   if (f) f(el.dataset);
 });
-// запрет масштабирования двумя пальцами: Safari/iOS (gesture*) и браузеры со своим масштабом, в т.ч. Huawei (многопальцевые touch)
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
 ['touchstart', 'touchmove'].forEach(t => document.addEventListener(t, e => {
   if (e.touches && e.touches.length > 1 && e.cancelable) e.preventDefault();
 }, { passive: false }));
 
-// Кнопка ✓ / Enter на клавиатуре: в последнем поле формы — сохранить, в остальных — просто закрыть клавиатуру
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   const t = e.target;
