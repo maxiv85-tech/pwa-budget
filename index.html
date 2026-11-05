@@ -972,46 +972,43 @@ async function saveFile(name, text, mime) {
     }
   }
 
-  // 2. Системное окно сохранения для Huawei PWA и заблокированных систем
+  // 2. Попытка открыть Blob во вкладке для Huawei PWA
+  try {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, '_blank');
+    if (win) {
+      flash('Файл открыт в новой вкладке. Сохраните его через меню браузера', 6000);
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+      return 'saved';
+    }
+  } catch (e) {}
+
+  // 3. Открытие диалогового окна с кнопкой Blob-ссылки и копированием
   huaweiAppDialog(name, text, baseMime);
-  return 'saved';
+  return 'cancelled';
 }
 
 function huaweiAppDialog(name, text, baseMime) {
-  const dataUri = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
+  const blob = new Blob([text], { type: baseMime });
+  const blobUrl = URL.createObjectURL(blob);
 
   const root = modal(`
     <h2>Сохранение резервной копии</h2>
     <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
-      Оболочка PWA блокирует фоновое скачивание файлов. Выберите подходящий вариант:
+      Оболочка Huawei ограничила прямые загрузки. Выберите способ сохранения:
     </div>
     
-    <a href="${dataUri}" download="${name}" target="_blank" class="btn" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
-      📥 Скачать файл бэкапа
+    <a href="${blobUrl}" download="${name}" target="_blank" class="btn" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
+      📥 Открыть файл для скачивания
     </a>
 
-    <button class="btn sec" id="hw_share" style="margin-top:8px">Отправить / Поделиться</button>
     <button class="btn sec" id="hw_copy" style="margin-top:8px">Скопировать JSON-код в буфер</button>
     
     <div id="copy_status" class="sub" style="text-align:center;margin-top:6px"></div>
 
     <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:8px" id="hw_close">Закрыть</button>
   `);
-
-  root.querySelector('#hw_share').onclick = async () => {
-    if (navigator.share && navigator.canShare) {
-      try {
-        const file = new File([text], name, { type: baseMime });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: name });
-          return;
-        }
-      } catch (e) {
-        if (e && e.name === 'AbortError') return;
-      }
-    }
-    root.querySelector('#copy_status').textContent = 'Функция "Поделиться" недоступна в этой системе. Используйте кнопку скачивания или копирования.';
-  };
 
   root.querySelector('#hw_copy').onclick = async () => {
     try {
@@ -1022,7 +1019,10 @@ function huaweiAppDialog(name, text, baseMime) {
     }
   };
 
-  root.querySelector('#hw_close').onclick = closeModal;
+  root.querySelector('#hw_close').onclick = () => {
+    URL.revokeObjectURL(blobUrl);
+    closeModal();
+  };
 }
 
 const backupDone = async () => { S.settings.lastBackup = Date.now(); await saveSettings(); render(); };
