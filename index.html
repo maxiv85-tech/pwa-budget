@@ -51,6 +51,8 @@ h3{font-size:16px;margin:22px 0 10px;font-weight:600}
 .acc{flex:none;min-width:140px;background:var(--card);border-radius:16px;padding:12px 14px;border-left:4px solid var(--primary)}
 .acc .b{font-weight:600;margin-top:4px}
 input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;font-family:inherit}
+.select-btn{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:0;color:var(--text)}
+.select-btn:active{background:#333}
 @supports (-webkit-touch-callout:none){
   input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;min-height:46px;text-align:left}
   input[type=date]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}
@@ -112,6 +114,14 @@ details.faq .body li{margin-bottom:4px}
 #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#3a3a3a;color:#fff;padding:10px 18px;border-radius:22px;font-size:14px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none;white-space:normal;text-align:center;line-height:1.4;width:max-content;max-width:calc(100vw - 32px)}
 #toast.show{opacity:1}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
+
+/* Стили для центрированного списка выбора */
+.modal-center{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:25;pointer-events:none;opacity:0;transition:opacity 0.2s;}
+.modal-center.open{opacity:1;pointer-events:auto;}
+.modal-center-content{background:var(--card);border-radius:20px;width:90%;max-width:400px;max-height:80vh;overflow-y:auto;box-shadow:0 10px 40px rgba(0,0,0,0.7);padding:10px;display:flex;flex-direction:column;}
+.modal-center-content h3{margin: 10px; text-align: center; font-size: 18px;}
+.list-item{display:flex;align-items:center;gap:12px;padding:14px;border-radius:12px;cursor:pointer;margin-bottom:4px;}
+.list-item:active{background:var(--card2);}
 </style>
 </head>
 <body>
@@ -305,6 +315,14 @@ function wirePickers(root, cur) {
   root.querySelectorAll('#pc .col').forEach(el => el.onclick = () => { cur.color = el.dataset.c; root.querySelectorAll('#pc .col').forEach(x => x.classList.toggle('on', x === el)); });
 }
 
+/* ---- Кастомный селект ---- */
+function selectBtn(label, text, icon, id) {
+  return `<button type="button" class="select-btn" id="${id}">
+    <span style="display:flex;align-items:center;gap:8px">${icon ? `<span style="font-size:18px">${icon}</span>` : ''} ${esc(text)}</span>
+    <span style="color:var(--muted)">▼</span>
+  </button>`;
+}
+
 /* ---- Операция / регулярный платёж ---- */
 function openTxModal(t, opt = {}) {
   const rec = !!opt.recurring;
@@ -323,8 +341,6 @@ function openTxModal(t, opt = {}) {
 
   const sync = root => {
     cur.amount = root.querySelector('#f_amount').value;
-    cur.accountId = Number(root.querySelector('#f_acc').value);
-    const to = root.querySelector('#f_to'); if (to) cur.toAccountId = Number(to.value);
     cur.date = root.querySelector('#f_date').value;
     cur.note = root.querySelector('#f_note').value;
     const fr = root.querySelector('#f_freq'); if (fr) cur.freq = fr.value;
@@ -334,7 +350,8 @@ function openTxModal(t, opt = {}) {
   };
 
   function draw() {
-    const accOpts = sel => S.accounts.map(a => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.icon)} ${esc(a.name)}</option>`).join('');
+    const acc = accOf(cur.accountId) || S.accounts[0];
+    const toAcc = accOf(cur.toAccountId) || S.accounts[0];
     const cats = S.categories.filter(c => c.type === cur.type);
     const root = modal(`
       <h2>${rec ? 'Регулярный платёж' : (t ? 'Изменить операцию' : 'Новая операция')}</h2>
@@ -344,13 +361,16 @@ function openTxModal(t, opt = {}) {
         <button class="${cur.type === 'transfer' ? 'on' : ''}" data-type="transfer">Перевод</button>
       </div>
       <input class="amount-in" id="f_amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0" value="${esc(cur.amount)}">
+      
       <label>${cur.type === 'transfer' ? 'Со счёта' : 'Счёт'}</label>
-      <select id="f_acc">${accOpts(cur.accountId)}</select>
-      ${cur.type === 'transfer' ? `<label>На счёт</label><select id="f_to">${accOpts(cur.toAccountId)}</select>
+      ${selectBtn('Счёт', acc.name, acc.icon, 'btn_acc')}
+      
+      ${cur.type === 'transfer' ? `<label>На счёт</label>${selectBtn('Счёт', toAcc.name, toAcc.icon, 'btn_to')}
         <label style="display:flex;gap:10px;align-items:center;margin-top:14px;font-size:14px;color:var(--text)"><input type="checkbox" id="f_asexp" ${cur.asExpense ? 'checked' : ''}> Считать расходом (например, платёж по кредиту)</label>
         ${cur.asExpense ? `<label>Категория расхода</label><div class="catgrid">${S.categories.filter(c => c.type === 'expense').map(c => `<div class="cat ${c.id === cur.categoryId ? 'on' : ''}" data-cat="${c.id}"><span>${esc(c.icon)}</span>${esc(c.name)}</div>`).join('')}</div>` : ''}` : `
         <label>Категория</label>
         <div class="catgrid">${cats.map(c => `<div class="cat ${c.id === cur.categoryId ? 'on' : ''}" data-cat="${c.id}"><span>${esc(c.icon)}</span>${esc(c.name)}</div>`).join('') || '<div class="muted">Нет категорий — добавьте в Ещё → Категории</div>'}</div>`}
+      
       <label>${rec ? 'Ближайшая дата' : 'Дата'}</label>
       <input id="f_date" type="date" value="${esc(cur.date)}">
       ${rec ? `<label>Повтор</label><select id="f_freq">${Object.entries(FREQ).map(([k, v]) => `<option value="${k}" ${cur.freq === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
@@ -361,6 +381,7 @@ function openTxModal(t, opt = {}) {
       <button class="btn" id="f_save">Сохранить</button>
       ${t ? '<button class="btn danger" id="f_del">Удалить</button>' : ''}
     `);
+    
     root.querySelectorAll('[data-type]').forEach(b => b.onclick = () => { sync(root); cur.type = b.dataset.type; fixCat(); draw(); });
     root.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => {
       cur.categoryId = Number(b.dataset.cat);
@@ -368,6 +389,20 @@ function openTxModal(t, opt = {}) {
     });
     const aeBox = root.querySelector('#f_asexp');
     if (aeBox) aeBox.onchange = () => { sync(root); fixCat(); draw(); };
+
+    // Обработчик для первого счёта
+    root.querySelector('#btn_acc').onclick = () => {
+      sync(root);
+      openAccountSelector((newId) => { cur.accountId = newId; draw(); });
+    };
+
+    // Обработчик для второго счёта (перевод)
+    const btnTo = root.querySelector('#btn_to');
+    if (btnTo) btnTo.onclick = () => {
+      sync(root);
+      openAccountSelector((newId) => { cur.toAccountId = newId; draw(); });
+    };
+
     root.querySelector('#f_save').onclick = async () => {
       sync(root);
       const amount = r2(parseFloat(cur.amount));
@@ -400,6 +435,35 @@ function openTxModal(t, opt = {}) {
     };
   }
   draw();
+}
+
+/* ---- Модалка выбора счёта по центру ---- */
+function openAccountSelector(onSelect) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-center open';
+  overlay.innerHTML = `
+    <div class="modal-center-content">
+      <h3>Выберите счёт</h3>
+      ${S.accounts.map(a => `
+        <div class="list-item" data-id="${a.id}">
+          <div class="ico" style="background:${a.color}33;font-size:18px">${esc(a.icon)}</div>
+          <div class="grow name">${esc(a.name)}</div>
+        </div>
+      `).join('')}
+      <button class="btn sec" style="margin-top:14px" id="closeSel">Отмена</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  const close = () => { overlay.classList.remove('open'); setTimeout(() => overlay.remove(), 200); };
+
+  overlay.querySelector('#closeSel').onclick = close;
+  overlay.querySelectorAll('.list-item').forEach(el => {
+    el.onclick = () => {
+      onSelect(Number(el.dataset.id));
+      close();
+    };
+  });
 }
 
 /* ---- Счёт ---- */
@@ -804,7 +868,7 @@ function viewMore() {
 }
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
-const APP_VERSION = '1.1.5';
+const APP_VERSION = '1.1.8';
 
 /* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
 function sendMode() {
@@ -986,12 +1050,28 @@ function huaweiAppDialog(name, text, baseMime) {
       📥 Попробовать скачать файл
     </a>
 
+    <button class="btn sec" id="hw_share" style="margin-top:8px">📤 Поделиться файлом</button>
     <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
     
     <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
 
     <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
   `);
+
+  root.querySelector('#hw_share').onclick = async () => {
+    if (navigator.share && navigator.canShare) {
+      try {
+        const file = new File([text], name, { type: baseMime });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: name });
+          return;
+        }
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+      }
+    }
+    root.querySelector('#copy_status').innerHTML = '<span style="color:var(--warn)">Функция "Поделиться" недоступна в этой системе.</span><br>Используйте кнопку скачивания или копирования.';
+  };
 
   root.querySelector('#hw_copy').onclick = async () => {
     try {
