@@ -804,8 +804,7 @@ function viewMore() {
 }
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
-
-const APP_VERSION = '1.1.4';
+const APP_VERSION = '1.1.6';
 
 /* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
 function sendMode() {
@@ -921,10 +920,7 @@ function viewAbout() {
       <div class="sub" style="white-space:normal;margin-top:4px">Режим: ${S.settings.updateMode === 'auto' ? 'автоматически' : 'вручную'} (меняется в «Ещё → Настройки»)</div>
       <button class="btn sec" data-act="checkUpdate" style="margin-top:12px">Проверить обновление</button>
       <div id="updStatus" class="sub" style="white-space:normal;margin-top:10px;line-height:1.5"></div>
-      <div class="sub" style="white-space:normal;margin-top:10px;line-height:1.5">При проверке приложение запросит с сайта, откуда оно установлено, только собственные файлы (страницу и иконки). Ваши данные никуда не передаются.</div></div>
-    <div class="card"><div><b>Диагностика API сохранения</b></div>
-      <div class="sub" style="white-space:normal;margin-top:4px">Если не работает сохранение, нажмите кнопку — приложение покажет, какие механизмы доступны в этом браузере/оболочке.</div>
-      <button class="btn sec" data-act="diag" style="margin-top:12px">Показать диагностику</button></div>`;
+      <div class="sub" style="white-space:normal;margin-top:10px;line-height:1.5">При проверке приложение запросит с сайта, откуда оно установлено, только собственные файлы (страницу и иконки). Ваши данные никуда не передаются.</div></div>`;
 }
 
 function viewData() {
@@ -955,90 +951,84 @@ async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
   const ext = name.slice(name.lastIndexOf('.'));
 
-  // 1. showSaveFilePicker (ПК)
+  // 1. Через File System Access API (ПК и поддерживающие браузеры)
   if (window.showSaveFilePicker) {
     try {
-      const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'Файл', accept: { [baseMime]: [ext] } }] });
-      const w = await h.createWritable(); await w.write(text); await w.close();
-      flash('Файл сохранён'); return 'saved';
-    } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
-  }
-
-  // 2. Web Share API (iOS, некоторые Android)
-  if (navigator.share && navigator.canShare) {
-    const file = new File([text], name, { type: baseMime });
-    let canShare = false;
-    try { canShare = navigator.canShare({ files: [file] }); } catch (_) {}
-    if (canShare) {
-      try { await navigator.share({ files: [file], title: name }); return 'saved'; }
-      catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
+      const h = await window.showSaveFilePicker({ 
+        suggestedName: name, 
+        types: [{ description: 'Файл резервной копии', accept: { [baseMime]: [ext] } }] 
+      });
+      const w = await h.createWritable(); 
+      await w.write(text); 
+      await w.close();
+      flash('Файл успешно сохранён'); 
+      return 'saved';
+    } catch (e) { 
+      if (e && e.name === 'AbortError') return 'cancelled'; 
     }
   }
 
-  // --- СПЕЦИАЛЬНЫЙ БЛОК ДЛЯ HUAWEI PWA ---
-  if (IS_HUAWEI_BROWSER && IS_STANDALONE) {
-    // Трюк 1: Скрытый iframe с data: URL (в некоторых версиях WebView работает как скачивание)
-    try {
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      const dataUrl = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
-      iframe.src = dataUrl;
-      document.body.appendChild(iframe);
-      setTimeout(() => iframe.remove(), 5000);
-      
-      flash('Попытка сохранения... Проверьте «Загрузки»', 5000);
-      return 'saved';
-    } catch (e) { /* идём дальше */ }
-  }
-
-  // 3. Обычное скачивание (для остальных)
-  try {
-    const blob = new Blob([text], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = name; a.style.display = 'none';
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 10000);
-    flash('Файл отправлен в загрузки', 4000);
-    return 'saved';
-  } catch (e) { /* идём дальше */ }
-
-  // 4. data: URL напрямую
-  try {
-    const a = document.createElement('a');
-    a.href = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
-    a.download = name; document.body.appendChild(a); a.click();
-    setTimeout(() => a.remove(), 3000);
-    flash('Файл отправлен в загрузки', 4000);
-    return 'saved';
-  } catch (e) { /* идём дальше */ }
-
-  // 5. Диалог с инструкцией (если ничего не помогло)
+  // 2. Системное окно сохранения для Huawei PWA и заблокированных систем
   huaweiAppDialog(name, text, baseMime);
-  return 'cancelled';
+  return 'saved';
 }
 
 function huaweiAppDialog(name, text, baseMime) {
+  const dataUri = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
+
   const root = modal(`
-    <h2>Сохранение из установленного приложения</h2>
-    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">Похоже, эта оболочка блокирует сохранение файлов из приложения, установленного на рабочий стол. Чтобы сохранить копию:
-      <ol style="margin:8px 0 0;padding-left:20px">
-        <li>Откройте этот сайт в самом браузере (не с рабочего стола).</li>
-        <li>Зайдите в «Ещё → Данные» и нажмите «Сохранить резервную копию (JSON)». Файл сохранится в «Загрузки».</li>
-      </ol>
-      <div style="margin-top:8px">Проверьте, что там те же данные: число операций на странице «Данные» должно совпасть.</div>
+    <h2>Сохранение резервной копии</h2>
+    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
+      Оболочка PWA блокирует прямое скачивание файлов. Используйте один из способов:
     </div>
-    <button class="btn sec" id="hw_try">Всё равно попробовать скачать</button>
-    <button class="btn" id="hw_ok">Понятно</button>`);
-  root.querySelector('#hw_try').onclick = () => {
-    const a = document.createElement('a');
-    a.href = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
-    a.download = name; document.body.appendChild(a); a.click();
-    setTimeout(() => a.remove(), 3000);
-    flash('Если файла нет в «Загрузках», сохраните копию через браузер', 5000);
+    
+    <a href="${dataUri}" download="${name}" target="_blank" class="btn" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
+      📥 Попробовать скачать файл
+    </a>
+
+    <button class="btn sec" id="hw_share" style="margin-top:8px">📤 Поделиться файлом</button>
+    <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
+    
+    <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
+
+    <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
+  `);
+
+  root.querySelector('#hw_share').onclick = async () => {
+    if (navigator.share && navigator.canShare) {
+      try {
+        const file = new File([text], name, { type: baseMime });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: name });
+          return;
+        }
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+      }
+    }
+    root.querySelector('#copy_status').innerHTML = '<span style="color:var(--warn)">Функция "Поделиться" недоступна в этой системе.</span><br>Используйте кнопку скачивания или копирования.';
   };
-  root.querySelector('#hw_ok').onclick = closeModal;
+
+  root.querySelector('#hw_copy').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      root.querySelector('#copy_status').innerHTML = `
+        <b style="color:var(--income); font-size: 16px; display: block; margin-bottom: 8px;">✅ Код скопирован!</b>
+        <b>Как сохранить:</b><br><br>
+        1. Откройте файловый менеджер (например, «Файлы»).<br>
+        2. Создайте новый текстовый файл.<br>
+        3. Вставьте скопированный код.<br>
+        4. Переименуйте файл в <b style="color:var(--primary)">${name}</b><br>
+        <span style="color: var(--muted); font-size: 12px;">(важно: расширение должно быть .json)</span>
+      `;
+    } catch (err) {
+      root.querySelector('#copy_status').innerHTML = `<span style="color:var(--expense)">❌ Не удалось скопировать автоматически.</span><br><br>Пожалуйста, выделите и скопируйте текст вручную.`;
+    }
+  };
+
+  root.querySelector('#hw_close').onclick = closeModal;
 }
+
 const backupDone = async () => { S.settings.lastBackup = Date.now(); await saveSettings(); render(); };
 async function exportJSON() {
   const data = { app: 'moneykeeper', version: 1, exported: new Date().toISOString(), settings: S.settings, accounts: S.accounts, categories: S.categories, transactions: S.transactions, budgets: S.budgets, recurring: S.recurring };
@@ -1108,17 +1098,6 @@ const ACT = {
   editRec: d => openTxModal(S.recurring.find(r => r.id === Number(d.id)), { recurring: true }),
   exportJSON, exportCSV, wipe,
   importJSON: () => $('#importFile').click(),
-  diag: () => {
-    const info = {
-      standalone: window.matchMedia('(display-mode: standalone)').matches,
-      navigatorStandalone: navigator.standalone,
-      showSaveFilePicker: typeof window.showSaveFilePicker === 'function',
-      share: typeof navigator.share === 'function',
-      canShare: typeof navigator.canShare === 'function',
-      userAgent: navigator.userAgent
-    };
-    alert(JSON.stringify(info, null, 2));
-  },
   checkUpdate: async () => {
     const set = h => { const el = $('#updStatus'); if (el) el.innerHTML = h; };
     if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return set('Автономный режим сейчас не активен: обновление происходит при обычной загрузке страницы.');
