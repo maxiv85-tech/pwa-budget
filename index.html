@@ -955,48 +955,68 @@ async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
   const ext = name.slice(name.lastIndexOf('.'));
 
-  // 1. «Сохранить как» (работает на ПК)
+  // 1. Через File System Access API (ПК и поддерживающие браузеры)
   if (window.showSaveFilePicker) {
     try {
-      const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'Файл', accept: { [baseMime]: [ext] } }] });
-      const w = await h.createWritable(); await w.write(text); await w.close();
-      flash('Файл сохранён'); return 'saved';
-    } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
-  }
-
-  // 2. «Поделиться» (работает на iOS и некоторых Android)
-  if (navigator.share && navigator.canShare) {
-    const file = new File([text], name, { type: baseMime });
-    let canShare = false;
-    try { canShare = navigator.canShare({ files: [file] }); } catch (_) {}
-    if (canShare) {
-      try { await navigator.share({ files: [file], title: name }); return 'saved'; }
-      catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
+      const h = await window.showSaveFilePicker({ 
+        suggestedName: name, 
+        types: [{ description: 'Файл резервной копии', accept: { [baseMime]: [ext] } }] 
+      });
+      const w = await h.createWritable(); 
+      await w.write(text); 
+      await w.close();
+      flash('Файл успешно сохранён'); 
+      return 'saved';
+    } catch (e) { 
+      if (e && e.name === 'AbortError') return 'cancelled'; 
     }
   }
 
-  // 3. Прямая загрузка (для обычных вкладок браузера)
+  // 2. Через системное меню «Поделиться» (идеально для Android, включая Huawei, и iOS)
+  // Позволяет напрямую отправить файл в Telegram, Диск, Загрузки или файловый менеджер.
+  if (navigator.share && navigator.canShare) {
+    try {
+      const file = new File([text], name, { type: baseMime });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: name, text: 'Резервная копия приложения Мой Бюджет' });
+        return 'saved';
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return 'cancelled';
+      // Если пользователь отменил или SHARE API вернул ошибку — идем ниже к резервным вариантам
+    }
+  }
+
+  // 3. Прямая загрузка через blob URL (стандартный путь)
   try {
     const blob = new Blob([text], { type: mime });
     const url = URL.createObjectURL(blob);
     
-    // Для Huawei PWA (ярлык на рабочем столе) стандартное скачивание блокируется.
-    // Открываем в новой вкладке, чтобы пользователь сохранил через меню браузера.
+    // Специальный обход для Huawei PWA, где фоновые клики по <a> блокируются оболочкой
     if (IS_HUAWEI_BROWSER && IS_STANDALONE) {
       const w = window.open(url, '_blank');
       if (w) {
-        flash('Файл открыт в новой вкладке. Сохраните его через меню браузера (⋮ → Скачать)', 7000);
+        flash('Файл открыт. Если он не скачался автоматически, зажмите страницу и выберите «Сохранить»', 7000);
         return 'saved';
       }
     }
 
     const a = document.createElement('a');
-    a.href = url; a.download = name; a.style.display = 'none';
-    document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 10000);
+    a.href = url; 
+    a.download = name; 
+    a.style.display = 'none';
+    document.body.appendChild(a); 
+    a.click();
+    setTimeout(() => { 
+      URL.revokeObjectURL(url); 
+      a.remove(); 
+    }, 10000);
+    
     flash('Файл отправлен в загрузки', 4000);
     return 'saved';
-  } catch (e) { /* идём дальше */ }
+  } catch (e) { 
+    // игнорируем и переходим к диалогу 
+  }
 
   // 4. data: URL (последний шанс для скачивания)
   try {
@@ -1008,7 +1028,7 @@ async function saveFile(name, text, mime) {
     return 'saved';
   } catch (e) { /* идём дальше */ }
 
-  // 5. Инструкция (если совсем ничего не вышло)
+  // 5. Крайний случай для заблокированных систем
   huaweiAppDialog(name, text, baseMime);
   return 'cancelled';
 }
