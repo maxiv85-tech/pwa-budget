@@ -51,6 +51,8 @@ h3{font-size:16px;margin:22px 0 10px;font-weight:600}
 .acc{flex:none;min-width:140px;background:var(--card);border-radius:16px;padding:12px 14px;border-left:4px solid var(--primary)}
 .acc .b{font-weight:600;margin-top:4px}
 input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;font-family:inherit}
+.select-btn{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:0}
+.select-btn:active{background:#333}
 @supports (-webkit-touch-callout:none){
   input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;min-height:46px;text-align:left}
   input[type=date]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}
@@ -305,6 +307,14 @@ function wirePickers(root, cur) {
   root.querySelectorAll('#pc .col').forEach(el => el.onclick = () => { cur.color = el.dataset.c; root.querySelectorAll('#pc .col').forEach(x => x.classList.toggle('on', x === el)); });
 }
 
+/* ---- Кастомный селект ---- */
+function selectBtn(label, text, icon, id) {
+  return `<button type="button" class="select-btn" id="${id}">
+    <span style="display:flex;align-items:center;gap:8px">${icon ? `<span style="font-size:18px">${icon}</span>` : ''} ${esc(text)}</span>
+    <span style="color:var(--muted)">▼</span>
+  </button>`;
+}
+
 /* ---- Операция / регулярный платёж ---- */
 function openTxModal(t, opt = {}) {
   const rec = !!opt.recurring;
@@ -323,8 +333,6 @@ function openTxModal(t, opt = {}) {
 
   const sync = root => {
     cur.amount = root.querySelector('#f_amount').value;
-    cur.accountId = Number(root.querySelector('#f_acc').value);
-    const to = root.querySelector('#f_to'); if (to) cur.toAccountId = Number(to.value);
     cur.date = root.querySelector('#f_date').value;
     cur.note = root.querySelector('#f_note').value;
     const fr = root.querySelector('#f_freq'); if (fr) cur.freq = fr.value;
@@ -334,7 +342,8 @@ function openTxModal(t, opt = {}) {
   };
 
   function draw() {
-    const accOpts = sel => S.accounts.map(a => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.icon)} ${esc(a.name)}</option>`).join('');
+    const acc = accOf(cur.accountId) || S.accounts[0];
+    const toAcc = accOf(cur.toAccountId) || S.accounts[0];
     const cats = S.categories.filter(c => c.type === cur.type);
     const root = modal(`
       <h2>${rec ? 'Регулярный платёж' : (t ? 'Изменить операцию' : 'Новая операция')}</h2>
@@ -344,13 +353,16 @@ function openTxModal(t, opt = {}) {
         <button class="${cur.type === 'transfer' ? 'on' : ''}" data-type="transfer">Перевод</button>
       </div>
       <input class="amount-in" id="f_amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0" value="${esc(cur.amount)}">
+      
       <label>${cur.type === 'transfer' ? 'Со счёта' : 'Счёт'}</label>
-      <select id="f_acc">${accOpts(cur.accountId)}</select>
-      ${cur.type === 'transfer' ? `<label>На счёт</label><select id="f_to">${accOpts(cur.toAccountId)}</select>
+      ${selectBtn('Счёт', acc.name, acc.icon, 'btn_acc')}
+      
+      ${cur.type === 'transfer' ? `<label>На счёт</label>${selectBtn('Счёт', toAcc.name, toAcc.icon, 'btn_to')}
         <label style="display:flex;gap:10px;align-items:center;margin-top:14px;font-size:14px;color:var(--text)"><input type="checkbox" id="f_asexp" ${cur.asExpense ? 'checked' : ''}> Считать расходом (например, платёж по кредиту)</label>
         ${cur.asExpense ? `<label>Категория расхода</label><div class="catgrid">${S.categories.filter(c => c.type === 'expense').map(c => `<div class="cat ${c.id === cur.categoryId ? 'on' : ''}" data-cat="${c.id}"><span>${esc(c.icon)}</span>${esc(c.name)}</div>`).join('')}</div>` : ''}` : `
         <label>Категория</label>
         <div class="catgrid">${cats.map(c => `<div class="cat ${c.id === cur.categoryId ? 'on' : ''}" data-cat="${c.id}"><span>${esc(c.icon)}</span>${esc(c.name)}</div>`).join('') || '<div class="muted">Нет категорий — добавьте в Ещё → Категории</div>'}</div>`}
+      
       <label>${rec ? 'Ближайшая дата' : 'Дата'}</label>
       <input id="f_date" type="date" value="${esc(cur.date)}">
       ${rec ? `<label>Повтор</label><select id="f_freq">${Object.entries(FREQ).map(([k, v]) => `<option value="${k}" ${cur.freq === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
@@ -361,6 +373,7 @@ function openTxModal(t, opt = {}) {
       <button class="btn" id="f_save">Сохранить</button>
       ${t ? '<button class="btn danger" id="f_del">Удалить</button>' : ''}
     `);
+    
     root.querySelectorAll('[data-type]').forEach(b => b.onclick = () => { sync(root); cur.type = b.dataset.type; fixCat(); draw(); });
     root.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => {
       cur.categoryId = Number(b.dataset.cat);
@@ -368,6 +381,42 @@ function openTxModal(t, opt = {}) {
     });
     const aeBox = root.querySelector('#f_asexp');
     if (aeBox) aeBox.onchange = () => { sync(root); fixCat(); draw(); };
+
+    root.querySelector('#btn_acc').onclick = () => {
+      sync(root);
+      const sub = modal(`
+        <h2>Выберите счёт</h2>
+        <div style="margin-top:14px">
+          ${S.accounts.map(a => `<div class="menu" data-acc-id="${a.id}"><div class="ico" style="background:${a.color}33">${esc(a.icon)}</div><div class="grow name">${esc(a.name)}</div></div>`).join('')}
+        </div>
+        <button class="btn danger" style="margin-top:14px; background:var(--card2); color:var(--text); border-color:var(--line)" id="closeSub">Отмена</button>
+      `);
+      sub.querySelectorAll('[data-acc-id]').forEach(el => el.onclick = () => {
+        cur.accountId = Number(el.dataset.accId);
+        closeModal(); // Закроем этот список
+        draw();       // Перерисуем основную форму
+      });
+      sub.querySelector('#closeSub').onclick = () => { closeModal(); draw(); };
+    };
+
+    const btnTo = root.querySelector('#btn_to');
+    if (btnTo) btnTo.onclick = () => {
+      sync(root);
+      const sub = modal(`
+        <h2>Выберите счёт (куда)</h2>
+        <div style="margin-top:14px">
+          ${S.accounts.map(a => `<div class="menu" data-acc-id="${a.id}"><div class="ico" style="background:${a.color}33">${esc(a.icon)}</div><div class="grow name">${esc(a.name)}</div></div>`).join('')}
+        </div>
+        <button class="btn danger" style="margin-top:14px; background:var(--card2); color:var(--text); border-color:var(--line)" id="closeSub">Отмена</button>
+      `);
+      sub.querySelectorAll('[data-acc-id]').forEach(el => el.onclick = () => {
+        cur.toAccountId = Number(el.dataset.accId);
+        closeModal();
+        draw();
+      });
+      sub.querySelector('#closeSub').onclick = () => { closeModal(); draw(); };
+    };
+
     root.querySelector('#f_save').onclick = async () => {
       sync(root);
       const amount = r2(parseFloat(cur.amount));
@@ -804,7 +853,7 @@ function viewMore() {
 }
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
-const APP_VERSION = '1.1.6';
+const APP_VERSION = '1.1.7';
 
 /* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
 function sendMode() {
