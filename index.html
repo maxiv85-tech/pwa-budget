@@ -50,9 +50,7 @@ h3{font-size:16px;margin:22px 0 10px;font-weight:600}
 .accs{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}
 .acc{flex:none;min-width:140px;background:var(--card);border-radius:16px;padding:12px 14px;border-left:4px solid var(--primary)}
 .acc .b{font-weight:600;margin-top:4px}
-input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;font-family:inherit}
-.select-btn{background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:12px;font-size:16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin-bottom:0}
-.select-btn:active{background:#333}
+input,select,textarea{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;font-family:inherit}
 @supports (-webkit-touch-callout:none){
   input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-width:0;max-width:100%;min-height:46px;text-align:left}
   input[type=date]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}
@@ -307,14 +305,6 @@ function wirePickers(root, cur) {
   root.querySelectorAll('#pc .col').forEach(el => el.onclick = () => { cur.color = el.dataset.c; root.querySelectorAll('#pc .col').forEach(x => x.classList.toggle('on', x === el)); });
 }
 
-/* ---- Кастомный селект ---- */
-function selectBtn(label, text, icon, id) {
-  return `<button type="button" class="select-btn" id="${id}">
-    <span style="display:flex;align-items:center;gap:8px">${icon ? `<span style="font-size:18px">${icon}</span>` : ''} ${esc(text)}</span>
-    <span style="color:var(--muted)">▼</span>
-  </button>`;
-}
-
 /* ---- Операция / регулярный платёж ---- */
 function openTxModal(t, opt = {}) {
   const rec = !!opt.recurring;
@@ -333,6 +323,8 @@ function openTxModal(t, opt = {}) {
 
   const sync = root => {
     cur.amount = root.querySelector('#f_amount').value;
+    cur.accountId = Number(root.querySelector('#f_acc').value);
+    const to = root.querySelector('#f_to'); if (to) cur.toAccountId = Number(to.value);
     cur.date = root.querySelector('#f_date').value;
     cur.note = root.querySelector('#f_note').value;
     const fr = root.querySelector('#f_freq'); if (fr) cur.freq = fr.value;
@@ -342,8 +334,7 @@ function openTxModal(t, opt = {}) {
   };
 
   function draw() {
-    const acc = accOf(cur.accountId) || S.accounts[0];
-    const toAcc = accOf(cur.toAccountId) || S.accounts[0];
+    const accOpts = sel => S.accounts.map(a => `<option value="${a.id}" ${a.id === sel ? 'selected' : ''}>${esc(a.icon)} ${esc(a.name)}</option>`).join('');
     const cats = S.categories.filter(c => c.type === cur.type);
     const root = modal(`
       <h2>${rec ? 'Регулярный платёж' : (t ? 'Изменить операцию' : 'Новая операция')}</h2>
@@ -353,16 +344,13 @@ function openTxModal(t, opt = {}) {
         <button class="${cur.type === 'transfer' ? 'on' : ''}" data-type="transfer">Перевод</button>
       </div>
       <input class="amount-in" id="f_amount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="0" value="${esc(cur.amount)}">
-      
       <label>${cur.type === 'transfer' ? 'Со счёта' : 'Счёт'}</label>
-      ${selectBtn('Счёт', acc.name, acc.icon, 'btn_acc')}
-      
-      ${cur.type === 'transfer' ? `<label>На счёт</label>${selectBtn('Счёт', toAcc.name, toAcc.icon, 'btn_to')}
+      <select id="f_acc">${accOpts(cur.accountId)}</select>
+      ${cur.type === 'transfer' ? `<label>На счёт</label><select id="f_to">${accOpts(cur.toAccountId)}</select>
         <label style="display:flex;gap:10px;align-items:center;margin-top:14px;font-size:14px;color:var(--text)"><input type="checkbox" id="f_asexp" ${cur.asExpense ? 'checked' : ''}> Считать расходом (например, платёж по кредиту)</label>
         ${cur.asExpense ? `<label>Категория расхода</label><div class="catgrid">${S.categories.filter(c => c.type === 'expense').map(c => `<div class="cat ${c.id === cur.categoryId ? 'on' : ''}" data-cat="${c.id}"><span>${esc(c.icon)}</span>${esc(c.name)}</div>`).join('')}</div>` : ''}` : `
         <label>Категория</label>
         <div class="catgrid">${cats.map(c => `<div class="cat ${c.id === cur.categoryId ? 'on' : ''}" data-cat="${c.id}"><span>${esc(c.icon)}</span>${esc(c.name)}</div>`).join('') || '<div class="muted">Нет категорий — добавьте в Ещё → Категории</div>'}</div>`}
-      
       <label>${rec ? 'Ближайшая дата' : 'Дата'}</label>
       <input id="f_date" type="date" value="${esc(cur.date)}">
       ${rec ? `<label>Повтор</label><select id="f_freq">${Object.entries(FREQ).map(([k, v]) => `<option value="${k}" ${cur.freq === k ? 'selected' : ''}>${v}</option>`).join('')}</select>
@@ -373,7 +361,6 @@ function openTxModal(t, opt = {}) {
       <button class="btn" id="f_save">Сохранить</button>
       ${t ? '<button class="btn danger" id="f_del">Удалить</button>' : ''}
     `);
-    
     root.querySelectorAll('[data-type]').forEach(b => b.onclick = () => { sync(root); cur.type = b.dataset.type; fixCat(); draw(); });
     root.querySelectorAll('[data-cat]').forEach(b => b.onclick = () => {
       cur.categoryId = Number(b.dataset.cat);
@@ -381,42 +368,6 @@ function openTxModal(t, opt = {}) {
     });
     const aeBox = root.querySelector('#f_asexp');
     if (aeBox) aeBox.onchange = () => { sync(root); fixCat(); draw(); };
-
-    root.querySelector('#btn_acc').onclick = () => {
-      sync(root);
-      const sub = modal(`
-        <h2>Выберите счёт</h2>
-        <div style="margin-top:14px">
-          ${S.accounts.map(a => `<div class="menu" data-acc-id="${a.id}"><div class="ico" style="background:${a.color}33">${esc(a.icon)}</div><div class="grow name">${esc(a.name)}</div></div>`).join('')}
-        </div>
-        <button class="btn danger" style="margin-top:14px; background:var(--card2); color:var(--text); border-color:var(--line)" id="closeSub">Отмена</button>
-      `);
-      sub.querySelectorAll('[data-acc-id]').forEach(el => el.onclick = () => {
-        cur.accountId = Number(el.dataset.accId);
-        closeModal(); // Закроем этот список
-        draw();       // Перерисуем основную форму
-      });
-      sub.querySelector('#closeSub').onclick = () => { closeModal(); draw(); };
-    };
-
-    const btnTo = root.querySelector('#btn_to');
-    if (btnTo) btnTo.onclick = () => {
-      sync(root);
-      const sub = modal(`
-        <h2>Выберите счёт (куда)</h2>
-        <div style="margin-top:14px">
-          ${S.accounts.map(a => `<div class="menu" data-acc-id="${a.id}"><div class="ico" style="background:${a.color}33">${esc(a.icon)}</div><div class="grow name">${esc(a.name)}</div></div>`).join('')}
-        </div>
-        <button class="btn danger" style="margin-top:14px; background:var(--card2); color:var(--text); border-color:var(--line)" id="closeSub">Отмена</button>
-      `);
-      sub.querySelectorAll('[data-acc-id]').forEach(el => el.onclick = () => {
-        cur.toAccountId = Number(el.dataset.accId);
-        closeModal();
-        draw();
-      });
-      sub.querySelector('#closeSub').onclick = () => { closeModal(); draw(); };
-    };
-
     root.querySelector('#f_save').onclick = async () => {
       sync(root);
       const amount = r2(parseFloat(cur.amount));
@@ -853,7 +804,8 @@ function viewMore() {
 }
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
-const APP_VERSION = '1.1.7';
+
+const APP_VERSION = '1.1.4';
 
 /* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
 function sendMode() {
@@ -969,7 +921,10 @@ function viewAbout() {
       <div class="sub" style="white-space:normal;margin-top:4px">Режим: ${S.settings.updateMode === 'auto' ? 'автоматически' : 'вручную'} (меняется в «Ещё → Настройки»)</div>
       <button class="btn sec" data-act="checkUpdate" style="margin-top:12px">Проверить обновление</button>
       <div id="updStatus" class="sub" style="white-space:normal;margin-top:10px;line-height:1.5"></div>
-      <div class="sub" style="white-space:normal;margin-top:10px;line-height:1.5">При проверке приложение запросит с сайта, откуда оно установлено, только собственные файлы (страницу и иконки). Ваши данные никуда не передаются.</div></div>`;
+      <div class="sub" style="white-space:normal;margin-top:10px;line-height:1.5">При проверке приложение запросит с сайта, откуда оно установлено, только собственные файлы (страницу и иконки). Ваши данные никуда не передаются.</div></div>
+    <div class="card"><div><b>Диагностика API сохранения</b></div>
+      <div class="sub" style="white-space:normal;margin-top:4px">Если не работает сохранение, нажмите кнопку — приложение покажет, какие механизмы доступны в этом браузере/оболочке.</div>
+      <button class="btn sec" data-act="diag" style="margin-top:12px">Показать диагностику</button></div>`;
 }
 
 function viewData() {
@@ -984,7 +939,7 @@ function viewData() {
 }
 async function persistInfo() {
   const el = $('#persist'); if (!el || !navigator.storage) return;
-  let p = navigator.storage.persisted ? await navigator.storage.persisted() : false;
+  let p = navigator.storagepersisted ? await navigator.storage.persisted() : false;
   if (!p && navigator.storage.persist) p = await navigator.storage.persist();
   el.textContent = p ? 'включена' : 'не гарантирована';
 }
@@ -1000,84 +955,91 @@ async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
   const ext = name.slice(name.lastIndexOf('.'));
 
-  // 1. Через File System Access API (ПК и поддерживающие браузеры)
+  // 1. File System Access API (ПК)
   if (window.showSaveFilePicker) {
     try {
       const h = await window.showSaveFilePicker({ 
         suggestedName: name, 
-        types: [{ description: 'Файл резервной копии', accept: { [baseMime]: [ext] } }] 
+        types: [{ description: 'Файл', accept: { [baseMime]: [ext] } }] 
       });
-      const w = await h.createWritable(); 
-      await w.write(text); 
-      await w.close();
-      flash('Файл успешно сохранён'); 
-      return 'saved';
-    } catch (e) { 
-      if (e && e.name === 'AbortError') return 'cancelled'; 
-    }
+      const w = await h.createWritable(); await w.write(text); await w.close();
+      flash('Файл сохранён'); return 'saved';
+    } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
   }
 
-  // 2. Системное окно сохранения для Huawei PWA и заблокированных систем
+  // 2. Если это Huawei PWA или другой изолированный режим — сразу показываем функциональное окно
+  if (IS_HUAWEI_BROWSER || IS_STANDALONE) {
+    huaweiAppDialog(name, text, baseMime);
+    return 'saved';
+  }
+
+  // 3. Прямая загрузка для обычных вкладок браузера
+  try {
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = name; a.style.display = 'none';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 10000);
+    flash('Файл отправлен в загрузки', 4000);
+    return 'saved';
+  } catch (e) { /* fallback к диалогу */ }
+
   huaweiAppDialog(name, text, baseMime);
   return 'saved';
 }
 
 function huaweiAppDialog(name, text, baseMime) {
-  const dataUri = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
-
   const root = modal(`
     <h2>Сохранение резервной копии</h2>
-    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
-      Оболочка PWA блокирует прямое скачивание файлов. Используйте один из способов:
+    <div class="sub" style="white-space:normal;line-height:1.5;margin-top:8px">
+      Оболочка PWA блокирует прямое скачивание файлов. Выберите удобный способ сохранения:
     </div>
-    
-    <a href="${dataUri}" download="${name}" target="_blank" class="btn" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
-      📥 Попробовать скачать файл
-    </a>
-
-    <button class="btn sec" id="hw_share" style="margin-top:8px">📤 Поделиться файлом</button>
-    <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
-    
-    <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
-
-    <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
-  `);
+    <button class="btn" id="hw_share" style="margin-top:14px">Отправить / Поделиться</button>
+    <button class="btn sec" id="hw_copy" style="margin-top:10px">Скопировать JSON-код резервной копии</button>
+    <div id="hw_copy_box" style="display:none;margin-top:10px">
+      <textarea id="hw_txt" readonly rows="4" style="font-size:12px;font-family:monospace">${esc(text)}</textarea>
+      <div class="sub" style="margin-top:4px">Вставьте скопированный текст в заметки или файл на телефоне.</div>
+    </div>
+    <button class="btn sec" id="hw_ok" style="margin-top:10px">Закрыть</button>`);
 
   root.querySelector('#hw_share').onclick = async () => {
-    if (navigator.share && navigator.canShare) {
+    if (navigator.share) {
       try {
         const file = new File([text], name, { type: baseMime });
-        if (navigator.canShare({ files: [file] })) {
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], title: name });
+          closeModal();
+          return;
+        } else {
+          await navigator.share({ title: name, text: text });
+          closeModal();
           return;
         }
       } catch (e) {
         if (e && e.name === 'AbortError') return;
       }
     }
-    root.querySelector('#copy_status').innerHTML = '<span style="color:var(--warn)">Функция "Поделиться" недоступна в этой системе.</span><br>Используйте кнопку скачивания или копирования.';
+    flash('Поделиться недоступно, воспользуйтесь копированием');
   };
 
-  root.querySelector('#hw_copy').onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      root.querySelector('#copy_status').innerHTML = `
-        <b style="color:var(--income); font-size: 16px; display: block; margin-bottom: 8px;">✅ Код скопирован!</b>
-        <b>Как сохранить:</b><br><br>
-        1. Откройте файловый менеджер (например, «Файлы»).<br>
-        2. Создайте новый текстовый файл.<br>
-        3. Вставьте скопированный код.<br>
-        4. Переименуйте файл в <b style="color:var(--primary)">${name}</b><br>
-        <span style="color: var(--muted); font-size: 12px;">(важно: расширение должно быть .json)</span>
-      `;
-    } catch (err) {
-      root.querySelector('#copy_status').innerHTML = `<span style="color:var(--expense)">❌ Не удалось скопировать автоматически.</span><br><br>Пожалуйста, выделите и скопируйте текст вручную.`;
+  root.querySelector('#hw_copy').onclick = () => {
+    const ta = root.querySelector('#hw_txt');
+    root.querySelector('#hw_copy_box').style.display = 'block';
+    ta.select();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        flash('Код копии скопирован в буфер обмена!');
+      }).catch(() => {
+        flash('Выделите и скопируйте текст ниже вручную');
+      });
+    } else {
+      flash('Выделите и скопируйте текст ниже вручную');
     }
   };
 
-  root.querySelector('#hw_close').onclick = closeModal;
+  root.querySelector('#hw_ok').onclick = closeModal;
 }
-
 const backupDone = async () => { S.settings.lastBackup = Date.now(); await saveSettings(); render(); };
 async function exportJSON() {
   const data = { app: 'moneykeeper', version: 1, exported: new Date().toISOString(), settings: S.settings, accounts: S.accounts, categories: S.categories, transactions: S.transactions, budgets: S.budgets, recurring: S.recurring };
@@ -1147,6 +1109,17 @@ const ACT = {
   editRec: d => openTxModal(S.recurring.find(r => r.id === Number(d.id)), { recurring: true }),
   exportJSON, exportCSV, wipe,
   importJSON: () => $('#importFile').click(),
+  diag: () => {
+    const info = {
+      standalone: window.matchMedia('(display-mode: standalone)').matches,
+      navigatorStandalone: navigator.standalone,
+      showSaveFilePicker: typeof window.showSaveFilePicker === 'function',
+      share: typeof navigator.share === 'function',
+      canShare: typeof navigator.canShare === 'function',
+      userAgent: navigator.userAgent
+    };
+    alert(JSON.stringify(info, null, 2));
+  },
   checkUpdate: async () => {
     const set = h => { const el = $('#updStatus'); if (el) el.innerHTML = h; };
     if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return set('Автономный режим сейчас не активен: обновление происходит при обычной загрузке страницы.');
