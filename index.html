@@ -4,13 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#121212">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="huawei-fastapp-page-background-color" content="#121212">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Бюджет">
 <title>Мой Бюджет</title>
 <style>
@@ -75,12 +74,9 @@ label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
 .nav button span{display:block;font-size:20px;margin-bottom:2px}
 .nav button.on{color:var(--primary)}
 .fab{position:fixed;bottom:calc(76px + env(safe-area-inset-bottom));right:max(16px,calc(50% - 224px));width:58px;height:58px;border-radius:50%;border:none;background:var(--primary);color:#000;font-size:30px;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:6;cursor:pointer}
-
-/* Модальные окна по центру экрана */
-#modal{position:fixed;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;z-index:20;padding:16px}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center;z-index:20}
 #modal.open{display:flex}
-.sheet{background:var(--card);width:100%;max-width:480px;max-height:85vh;overflow-y:auto;overflow-x:hidden;border-radius:24px;padding:20px;box-shadow:0 10px 32px rgba(0,0,0,.6)}
-
+.sheet{background:var(--card);width:100%;max-width:480px;max-height:calc(100% - env(safe-area-inset-top) - 10px);overflow-y:auto;overflow-x:hidden;border-radius:24px 24px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom))}
 .sheet h2{margin:0 0 6px;font-size:18px}
 .amount-in{font-size:32px;font-weight:700;text-align:center;padding:14px}
 .catgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
@@ -159,6 +155,7 @@ let suppressClickUntil = 0;
 const sortAccounts = () => S.accounts.sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
 const now = new Date();
 const U = { tab: 'home', sub: null, month: { y: now.getFullYear(), m: now.getMonth() }, monthX: { y: now.getFullYear(), m: now.getMonth() }, q: '', opsType: 'all', statType: 'expense', statCat: null, catType: 'expense' };
+// у главной свой месяц (для блоков «Доходы» и «Расходы»); у вкладок «Операции», «Статистика» и «Бюджеты» общий
 const M = () => U.tab === 'home' ? U.month : U.monthX;
 
 const EMOJIS = ['🛒','🚗','🏠','☕','💊','👕','🎮','📱','🎁','📦','💼','💻','💰','💳','💵','🏦','✈️','🍔','🍕','🎬','📚','🐶','⚽','🔧','💡','🚌','⛽','👶','💅','🎓','🏋️','🧾','📈','🏷️','🛠️','🎵','🍷','🧴','🚕','❤️'];
@@ -222,6 +219,7 @@ function balances() {
 }
 const monthTx = (y = M().y, m = M().m) => S.transactions.filter(t => t.date.startsWith(mkey(y, m)));
 const sumBy = (arr, type) => r2(arr.filter(t => t.type === type).reduce((s, t) => s + t.amount, 0));
+// операции для статистики/бюджетов: без помеченных «не учитывать», переводы с галочкой «считать расходом» — как расходы
 const statList = arr => arr.filter(t => !t.skip).map(t => t.type === 'transfer' && t.asExpense ? { ...t, type: 'expense' } : t);
 const sortTx = a => a.slice().sort((x, y) => y.date.localeCompare(x.date) || y.id - x.id);
 
@@ -276,6 +274,9 @@ function closeModal() {
   $('#modal').innerHTML = '';
   if (history.state && history.state.m) history.back();
 }
+/* ---- Кнопка «Назад» ----
+   История: [корень] → [приложение]. Нажатие «Назад» возвращает на корень, мы перехватываем его,
+   делаем шаг назад внутри приложения и снова добавляем запись «приложение». */
 let lastBack = 0, toastTimer;
 function flash(msg, ms = 2000) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
@@ -284,15 +285,16 @@ function flash(msg, ms = 2000) {
 const armBack = () => history.pushState({ app: 1 }, '');
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const IS_STANDALONE = navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-const TRAP = !IS_IOS || IS_STANDALONE;
+const TRAP = !IS_IOS || IS_STANDALONE;     // в обычной вкладке Safari системный «назад» не перехватываем
 if (TRAP) history.replaceState({ root: 1 }, '');
+// браузер игнорирует записи истории, добавленные без касаний пользователя, поэтому добавляем при первом нажатии
 if (TRAP) document.addEventListener('click', armBack, { capture: true, once: true });
 window.addEventListener('popstate', () => {
   if (modalOpen) { modalOpen = false; $('#modal').classList.remove('open'); $('#modal').innerHTML = ''; return; }
   if (!(history.state && history.state.root)) return;
   if (U.statCat) { U.statCat = null; render(); armBack(); return; }
   if (U.sub) { U.sub = null; render(); armBack(); return; }
-  if (IS_IOS) { armBack(); return; }
+  if (IS_IOS) { armBack(); return; }          // на iOS приложение «Назад» не закрывает — подсказка про выход не нужна
   const t = Date.now();
   if (t - lastBack < 2000) { history.back(); return; }
   lastBack = t; flash('Нажмите «Назад» ещё раз, чтобы выйти'); armBack();
@@ -628,6 +630,7 @@ function viewStats() {
   const donut = total ? `<svg viewBox="0 0 42 42" style="width:200px;display:block;margin:0 auto"><circle cx="21" cy="21" r="15.9155" fill="none" stroke="#262626" stroke-width="5"/>${segs}
       <text x="21" y="22" text-anchor="middle" fill="#fff" font-size="3.6" font-weight="700">${esc(fmt(total))}</text></svg>` : '<div class="empty">Нет данных за этот месяц</div>';
 
+  // 6 месяцев
   const ms = [];
   for (let i = 5; i >= 0; i--) { const d = new Date(M().y, M().m - i, 1); const t = statList(monthTx(d.getFullYear(), d.getMonth())); ms.push({ l: MONTHS[d.getMonth()].slice(0, 3), i: sumBy(t, 'income'), e: sumBy(t, 'expense') }); }
   const mx = Math.max(1, ...ms.flatMap(x => [x.i, x.e]));
@@ -673,8 +676,9 @@ function initAccDrag() {
   if (!list) return;
   list.addEventListener('contextmenu', e => e.preventDefault());
   const items = () => [...list.querySelectorAll(':scope > .menu')];
-  const HOLD = 280, SLOP = 16;
+  const HOLD = 280, SLOP = 16;          // удержание, мс / допуск дрожания пальца, px
 
+  // Один жест перетаскивания плашки. Источник событий (touch или мышь) вызывает start/move/end.
   function gesture(row, x0, y0) {
     let started = false, done = false, startY = y0, lastY = y0, raf = 0, timer = 0, lockY = 0;
     const apply = () => { row.style.transform = `translateY(${lastY - startY}px)`; };
@@ -682,6 +686,7 @@ function initAccDrag() {
       document.documentElement.style.overflow = on ? 'hidden' : '';
       document.body.style.overflow = on ? 'hidden' : '';
     };
+    // если движок всё же сдвинул страницу — возвращаем на место
     const holdScroll = () => { if (Math.abs(window.scrollY - lockY) > 1) window.scrollTo(0, lockY); };
     const update = () => {
       apply();
@@ -690,6 +695,7 @@ function initAccDrag() {
         const rc = row.getBoundingClientRect(), c = rc.top + rc.height / 2;
         const next = arr[i + 1], prev = arr[i - 1];
         let moved = false;
+        // переставляем соседей, а не саму плашку
         if (next) { const nb = next.getBoundingClientRect(); if (c > nb.top + nb.height / 2) { list.insertBefore(next, row); moved = true; } }
         if (!moved && prev) { const pb = prev.getBoundingClientRect(); if (c < pb.top + pb.height / 2) { list.insertBefore(prev, row.nextSibling); moved = true; } }
         if (!moved) break;
@@ -721,7 +727,7 @@ function initAccDrag() {
     function end() {
       if (done) return false;
       done = true; clearTimeout(timer); cancelAnimationFrame(raf);
-      if (!started) return false;
+      if (!started) return false;                         // обычное нажатие или прокрутка
       lockScroll(false);
       row.style.transform = ''; row.classList.remove('dragging');
       suppressClickUntil = Date.now() + 400;
@@ -730,6 +736,7 @@ function initAccDrag() {
     }
     return {
       start() { timer = setTimeout(begin, HOLD); },
+      // true — идёт перетаскивание (событие нужно погасить)
       move(x, y) {
         if (done) return false;
         lastY = y;
@@ -741,6 +748,7 @@ function initAccDrag() {
   }
 
   items().forEach(row => {
+    // --- пальцем: touch-события (движок Huawei отменяет pointer-события по долгому нажатию) ---
     let g = null;
     row.addEventListener('touchstart', e => {
       if (g) { g.end(); g = null; }
@@ -748,6 +756,7 @@ function initAccDrag() {
       const t = e.touches[0];
       g = gesture(row, t.clientX, t.clientY); g.start();
     }, { passive: true });
+    // слушатель на самой плашке (а не на document), чтобы preventDefault не игнорировался
     row.addEventListener('touchmove', e => {
       if (!g) return;
       const t = e.touches[0];
@@ -757,11 +766,12 @@ function initAccDrag() {
     const finish = e => {
       if (!g) return;
       const was = g.end(); g = null;
-      if (was && e.cancelable) e.preventDefault();
+      if (was && e.cancelable) e.preventDefault();       // не открывать карточку счёта после перетаскивания
     };
     row.addEventListener('touchend', finish);
     row.addEventListener('touchcancel', finish);
 
+    // --- мышью: pointer-события ---
     row.addEventListener('pointerdown', e => {
       if (e.pointerType !== 'mouse' || e.button !== 0) return;
       const mg = gesture(row, e.clientX, e.clientY); mg.start();
@@ -808,7 +818,8 @@ function viewMore() {
 }
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
-const APP_VERSION = '1.1.6';
+
+const APP_VERSION = '1.1.5';
 
 /* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
 function sendMode() {
@@ -945,82 +956,107 @@ async function persistInfo() {
 }
 
 /* ============ Экспорт / импорт ============ */
+/* Сохранение файла. Порядок попыток:
+   1) системное окно «Сохранить как» (showSaveFilePicker) — компьютеры;
+   2) меню «Поделиться» с файлом (Web Share API) — телефоны: там есть «Сохранить как», выбор папки и приложений;
+   3) обычная загрузка браузера (файл уходит в папку загрузок) с подсказкой на экране.
+   Возвращает 'saved' | 'cancelled'. */
 const IS_HUAWEI_BROWSER = /HuaweiBrowser|HMSCore|HuaweiMobile/i.test(navigator.userAgent || '');
+// приложение запущено «с рабочего стола» (без интерфейса браузера), а не во вкладке
+const IS_INSTALLED_APP = IS_STANDALONE || !!(window.matchMedia && ['standalone', 'minimal-ui', 'fullscreen'].some(m => window.matchMedia('(display-mode: ' + m + ')').matches));
+// Эксперимент для браузера Huawei: он показывает сообщение «повторите жест», если страница запрещает масштаб в meta.
+// Масштаб остаётся заблокированным через touch-action и обработку жестов (см. выше), поэтому из meta запрет убираем.
 if (IS_HUAWEI_BROWSER) {
   const vp = document.querySelector('meta[name="viewport"]');
   if (vp) vp.setAttribute('content', 'width=device-width, initial-scale=1, viewport-fit=cover');
 }
-
-async function saveFile(name, text, mime) {
+async function saveFile(name, text, mime, onDone) {
   const baseMime = String(mime).split(';')[0];
   const ext = name.slice(name.lastIndexOf('.'));
-
-  // 1. Через File System Access API (ПК и поддерживающие браузеры)
+  // 1. «Сохранить как»
   if (window.showSaveFilePicker) {
     try {
-      const h = await window.showSaveFilePicker({ 
-        suggestedName: name, 
-        types: [{ description: 'Файл резервной копии', accept: { [baseMime]: [ext] } }] 
-      });
-      const w = await h.createWritable(); 
-      await w.write(text); 
-      await w.close();
-      flash('Файл успешно сохранён'); 
-      return 'saved';
-    } catch (e) { 
-      if (e && e.name === 'AbortError') return 'cancelled'; 
+      const h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'Файл', accept: { [baseMime]: [ext] } }] });
+      const w = await h.createWritable(); await w.write(text); await w.close();
+      flash('Файл сохранён'); return 'saved';
+    } catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
+  }
+  // 2. «Поделиться» с файлом (если canShare нет, просто пробуем — часть браузеров его не объявляет)
+  if (navigator.share) {
+    const variants = [new File([text], name, { type: baseMime })];
+    if (baseMime === 'application/json') variants.push(new File([text], name + '.txt', { type: 'text/plain' }));  // json в списке разрешённых типов не у всех браузеров
+    for (const f of variants) {
+      if (navigator.canShare) {
+        let ok = false;
+        try { ok = navigator.canShare({ files: [f] }); } catch (_) {}
+        if (!ok) continue;
+      }
+      try { await navigator.share({ files: [f], title: f.name }); return 'saved'; }
+      catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
     }
   }
-
-  // 2. Системное окно сохранения для Huawei PWA и заблокированных систем
-  huaweiAppDialog(name, text, baseMime);
+  // 3. в установленном приложении браузера Huawei автоматическая загрузка не работает — даём ссылки, на которые нажимает сам пользователь
+  if (IS_HUAWEI_BROWSER && IS_INSTALLED_APP) { huaweiAppDialog(name, text, mime, onDone); return 'cancelled'; }
+  // 4. обычная загрузка браузера (результат из страницы узнать нельзя, поэтому — подсказка)
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 3000);
+  flash('Файл отправлен в загрузки браузера', 4000);
   return 'saved';
 }
 
-function huaweiAppDialog(name, text, baseMime) {
+// Ссылка с атрибутом download, на которую нажимает сам пользователь, часто срабатывает там, где скрипт скачать файл не может.
+// Три способа отдать файл: через service worker (обычный адрес с Content-Disposition), через data-адрес и через blob-адрес.
+async function swDownloadUrl(name, text) {
+  if (!('caches' in window) || !navigator.serviceWorker || !navigator.serviceWorker.controller) return null;
+  const c = await caches.open('budget-dl');
+  for (const k of await c.keys()) await c.delete(k);
+  const url = new URL('__dl/' + name, location.href).href;
+  await c.put(url, new Response(text, { headers: { 'Content-Type': 'application/octet-stream', 'Content-Disposition': 'attachment; filename="' + name + '"' } }));
+  return url;
+}
+function huaweiAppDialog(name, text, mime, onDone) {
+  const baseMime = String(mime).split(';')[0];
   const dataUri = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
-
+  const blobUrl = URL.createObjectURL(new Blob([text], { type: mime }));
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 300000);
+  const link = 'display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:10px';
+  const yn = v => v ? 'да' : 'нет';
+  const diag = 'приложение=' + yn(IS_INSTALLED_APP) + ', share=' + yn(navigator.share) + ', canShare=' + yn(navigator.canShare) +
+    ', picker=' + yn(window.showSaveFilePicker) + ', SW=' + yn(navigator.serviceWorker && navigator.serviceWorker.controller);
   const root = modal(`
     <h2>Сохранение резервной копии</h2>
-    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
-      Оболочка PWA блокирует прямое скачивание файлов. Используйте один из способов:
-    </div>
-    
-    <a href="${dataUri}" download="${name}" target="_blank" class="btn" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
-      📥 Попробовать скачать файл
-    </a>
-
-    <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
-    
-    <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
-
-    <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
-  `);
-
-  root.querySelector('#hw_copy').onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      root.querySelector('#copy_status').innerHTML = `
-        <b style="color:var(--income); font-size: 16px; display: block; margin-bottom: 8px;">✅ Код скопирован!</b>
-        <b>Как сохранить:</b><br><br>
-        1. Откройте файловый менеджер (например, «Файлы»).<br>
-        2. Создайте новый текстовый файл.<br>
-        3. Вставьте скопированный код.<br>
-        4. Переименуйте файл в <b style="color:var(--primary)">${name}</b><br>
-        <span style="color: var(--muted); font-size: 12px;">(важно: расширение должно быть .json)</span>
-      `;
-    } catch (err) {
-      root.querySelector('#copy_status').innerHTML = `<span style="color:var(--expense)">❌ Не удалось скопировать автоматически.</span><br><br>Пожалуйста, выделите и скопируйте текст вручную.`;
-    }
+    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">Браузер Huawei блокирует автоматическое сохранение файлов из установленного приложения. Нажмите на ссылку ниже: нажатие пальцем часто срабатывает там, где автоматическая загрузка нет. Не вышло — попробуйте следующий способ.</div>
+    <a id="hw_a1" class="btn" style="${link};display:none" download="${name}">📥 Скачать файл (способ 1)</a>
+    <a id="hw_a2" class="btn sec" style="${link}" href="${dataUri}" download="${name}">📥 Скачать файл (способ 2)</a>
+    <a id="hw_a3" class="btn sec" style="${link}" href="${blobUrl}" download="${name}">📥 Скачать файл (способ 3)</a>
+    ${navigator.share ? '<button class="btn sec" id="hw_share" style="margin-top:10px">Поделиться файлом</button>' : ''}
+    <div id="hw_status" class="sub" style="white-space:normal;line-height:1.5;margin-top:10px"></div>
+    <div class="sub" style="white-space:normal;line-height:1.5;margin-top:10px">Если ни один способ не сработал: откройте этот сайт в самом браузере Huawei (не с рабочего стола), зайдите в «Ещё → Данные» и сохраните копию оттуда. Данные должны совпасть: проверьте число операций.</div>
+    ${onDone ? '<button class="btn" id="hw_done">Файл сохранился</button>' : ''}
+    <button class="btn" style="background:transparent;border:1px solid var(--line);color:var(--text)" id="hw_close">Закрыть</button>
+    <div class="sub" style="white-space:normal;line-height:1.5;margin-top:12px;font-size:11px">Диагностика: ${diag}</div>`);
+  const status = root.querySelector('#hw_status');
+  const hint = () => { status.textContent = 'Если файла нет в «Загрузках», попробуйте следующий способ.'; };
+  ['#hw_a1', '#hw_a2', '#hw_a3'].forEach(q => { root.querySelector(q).addEventListener('click', hint); });
+  swDownloadUrl(name, text).then(url => {
+    if (!url) return;
+    const a = root.querySelector('#hw_a1'); a.href = url; a.style.display = 'block';
+  }).catch(() => {});
+  const sh = root.querySelector('#hw_share');
+  if (sh) sh.onclick = async () => {
+    try { await navigator.share({ files: [new File([text], name, { type: baseMime })], title: name }); }
+    catch (e) { if (!e || e.name !== 'AbortError') status.textContent = 'Меню «Поделиться» недоступно для файлов в этой системе.'; }
   };
-
+  const done = root.querySelector('#hw_done');
+  if (done) done.onclick = async () => { await onDone(); closeModal(); };
   root.querySelector('#hw_close').onclick = closeModal;
 }
-
 const backupDone = async () => { S.settings.lastBackup = Date.now(); await saveSettings(); render(); };
 async function exportJSON() {
   const data = { app: 'moneykeeper', version: 1, exported: new Date().toISOString(), settings: S.settings, accounts: S.accounts, categories: S.categories, transactions: S.transactions, budgets: S.budgets, recurring: S.recurring };
-  const r = await saveFile(`budget-${today()}.json`, JSON.stringify(data), 'application/json');
+  const r = await saveFile(`budget-${today()}.json`, JSON.stringify(data), 'application/json', backupDone);
   if (r === 'saved') await backupDone();
 }
 function exportCSV() {
@@ -1103,15 +1139,17 @@ document.addEventListener('click', e => {
   if (Date.now() < suppressClickUntil || e.target.closest('.handle')) return;
   const el = e.target.closest('[data-act]');
   if (!el) return;
-  if (el.id === 'modal' && e.target !== el) return;
+  if (el.id === 'modal' && e.target !== el) return; // клик внутри листа — не закрываем
   const f = ACT[el.dataset.act];
   if (f) f(el.dataset);
 });
+// запрет масштабирования двумя пальцами: Safari/iOS (gesture*) и браузеры со своим масштабом, в т.ч. Huawei (многопальцевые touch)
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault()));
 ['touchstart', 'touchmove'].forEach(t => document.addEventListener(t, e => {
   if (e.touches && e.touches.length > 1 && e.cancelable) e.preventDefault();
 }, { passive: false }));
 
+// Кнопка ✓ / Enter на клавиатуре: в последнем поле формы — сохранить, в остальных — просто закрыть клавиатуру
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
   const t = e.target;

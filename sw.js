@@ -5,6 +5,7 @@
 // Файл sw.js не меняется между версиями приложения, поэтому обновлений «за спиной» пользователя не бывает.
 const CACHE = 'budget-app';
 const META = 'budget-meta';
+const DL = 'budget-dl';          // временное хранилище для скачивания резервной копии обычной ссылкой
 const FILES = ['./index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 const FETCH_TIMEOUT = 10000;
 
@@ -40,7 +41,7 @@ self.addEventListener('install', e => {
 
 self.addEventListener('activate', e => {
   e.waitUntil((async () => {
-    const keep = [CACHE, META];
+    const keep = [CACHE, META, DL];
     for (const k of await caches.keys()) if (!keep.includes(k)) await caches.delete(k);
     await self.clients.claim();
   })());
@@ -87,6 +88,14 @@ self.addEventListener('message', e => {
 self.addEventListener('fetch', e => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
+  // файл для скачивания, подготовленный страницей (с заголовком Content-Disposition: attachment)
+  if (new URL(req.url).pathname.includes('/__dl/')) {
+    e.respondWith((async () => {
+      const r = await (await caches.open(DL)).match(req.url);
+      return r || new Response('Файл не найден. Закройте окно и повторите сохранение.', { status: 404 });
+    })());
+    return;
+  }
   e.respondWith((async () => {
     const cache = await caches.open(CACHE);
     const isNav = req.mode === 'navigate';
