@@ -14,9 +14,9 @@
 <title>Мой Бюджет</title>
 <style>
 :root{
-  color-scheme: dark;
+  color-scheme: dark; /* Говорит браузеру не делать принудительную светлую тему */
   --bg:#121212;--card:#1e1e1e;--card2:#262626;--text:#fff;--muted:#a3a3a3;
-  --primary:#bb86fc;--expense:#cf6679;--income:#03dac6;--warn:#ffb74d;--line:#303030;
+  --primary:#bb86fc;--expense:#cf6679;--income:#03dac6;--warn:#ffb74d;--line:#303030
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;overscroll-behavior:none;touch-action:pan-x pan-y}
@@ -61,7 +61,7 @@ input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--l
 }
 input[type=checkbox]{width:20px;height:20px}
 label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
-.btn{width:100%;padding:14px;border-radius:12px;border:none;background:var(--primary);color:#000;font-weight:700;font-size:16px;cursor:pointer;margin-top:14px; display:block; text-align:center;}
+.btn{width:100%;padding:14px;border-radius:12px;border:none;background:var(--primary);color:#000;font-weight:700;font-size:16px;cursor:pointer;margin-top:14px; display:block; text-align:center; text-decoration:none;}
 .btn.sec{background:var(--card2);color:var(--text)}
 .btn.danger{background:transparent;color:var(--expense);border:1px solid var(--expense)}
 .btn:active{transform:scale(.98)}
@@ -83,7 +83,7 @@ label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
 .sheet{background:#1e1e1e; color:#fff; width:100%;max-width:480px;max-height:calc(100% - env(safe-area-inset-top) - 10px);overflow-y:auto;overflow-x:hidden;border-radius:24px 24px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom))}
 .sheet h2{margin:0 0 6px;font-size:18px;color:#fff}
 
-/* Принудительные цвета для кастомного списка (защита от светлой темы) */
+/* Идеально ровный кастомный выбор (шторка) */
 #pickov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
 #pickov .plist{background:#1e1e1e; color:#fff; width:100%;max-width:480px;max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch;border-radius:20px 20px 0 0;padding:6px 0 calc(12px + env(safe-area-inset-bottom))}
 #pickov .popt{display:flex;align-items:center;gap:12px;padding:14px 18px;font-size:16px;cursor:pointer;border-bottom:1px solid #303030;min-height:56px;color:#fff}
@@ -1012,43 +1012,21 @@ if (IS_HUAWEI_BROWSER) {
 
 async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
-  const ext = name.slice(name.lastIndexOf('.'));
 
   // 1. Web Share API (Системное окно "Поделиться")
-  if (navigator.share) {
+  if (navigator.share && navigator.canShare) {
     try {
       const file = new File([text], name, { type: baseMime });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'Резервная копия бюджета'
-        });
+      if (navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'Резервная копия' });
         return 'saved';
       }
     } catch (e) {
       if (e.name === 'AbortError') return 'cancelled';
-      console.warn('Web Share API failed, falling back', e);
     }
   }
 
-  // 2. File System Access API (Проводник на ПК)
-  if (window.showSaveFilePicker) {
-    try {
-      const h = await window.showSaveFilePicker({ 
-        suggestedName: name, 
-        types: [{ description: 'Файл резервной копии', accept: { [baseMime]: [ext] } }] 
-      });
-      const w = await h.createWritable(); 
-      await w.write(text); 
-      await w.close();
-      return 'saved';
-    } catch (e) { 
-      if (e && e.name === 'AbortError') return 'cancelled'; 
-      console.warn('File System API failed, falling back', e);
-    }
-  }
-
-  // 3. Классическое скачивание (Работает везде, кроме заблокированных WebView)
+  // 2. Стандартное скачивание (работает везде)
   try {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([text], { type: baseMime }));
@@ -1057,9 +1035,9 @@ async function saveFile(name, text, mime) {
     a.click();
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
 
-    // Если это Huawei, он может заблокировать скачивание. Показываем страховку.
+    // Если Huawei, показываем страховочное окно через 1 сек
     if (IS_HUAWEI_BROWSER) {
-      huaweiAppDialog(name, text, baseMime);
+      setTimeout(() => huaweiAppDialog(name, text, baseMime), 1000);
       return 'pending';
     }
     return 'saved';
@@ -1076,11 +1054,11 @@ function huaweiAppDialog(name, text, baseMime) {
   const root = modal(`
     <h2>Сохранение резервной копии</h2>
     <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px;color:#a3a3a3">
-      Браузер заблокировал прямое скачивание. Используйте один из способов:
+      Если скачивание не началось, используйте один из способов:
     </div>
     
     <a href="${dataUri}" download="${name}" target="_blank" class="btn" id="hw_download" style="margin-top:14px;">
-      📥 Попробовать скачать файл
+      📥 Скачать файл вручную
     </a>
 
     <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
@@ -1095,7 +1073,7 @@ function huaweiAppDialog(name, text, baseMime) {
     saved = true;
     S.settings.lastBackup = Date.now();
     await saveSettings();
-    render(); // Обновляем время в меню
+    render();
   };
 
   root.querySelector('#hw_download').onclick = () => { markSaved(); };
