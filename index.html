@@ -113,9 +113,32 @@ details.faq .body li{margin-bottom:4px}
 #toast.show{opacity:1}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
 
-/* Идеально ровный кастомный выбор (шторка) */
+/* ====== ИСПРАВЛЕНИЕ КНОПКИ ВЫБОРА (Скриншот 3) ====== */
+.pick{
+  display:flex; align-items:center; justify-content:space-between; width:100%;
+  padding:14px 16px; border-radius:12px; 
+  border:1px solid var(--line); 
+  background-color: var(--card2); /* Жестко задаем фон */
+  color: var(--text); /* Жестко задаем цвет текста */
+  font-size:16px; font-family:inherit; text-align:left; cursor:pointer;
+  -webkit-appearance: none; /* Убираем дефолтные стили iOS/Android */
+  appearance: none;
+  outline: none; box-sizing: border-box;
+}
+.pick span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick i{flex:none;font-style:normal;color:var(--muted);font-size:14px;margin-left:10px}
+
+/* ====== ИСПРАВЛЕНИЕ ШТОРКИ И СКРОЛЛБАРА (Скриншот 1 и 4) ====== */
 #pickov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
-#pickov .plist{background:var(--card);width:100%;max-width:480px;max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch;border-radius:20px 20px 0 0;padding:6px 0 calc(12px + env(safe-area-inset-bottom))}
+#pickov .plist{
+  background:var(--card); width:100%; max-width:480px; max-height:70vh;
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
+  border-radius:20px 20px 0 0; padding:6px 0 calc(12px + env(safe-area-inset-bottom));
+  /* Скрываем полосу прокрутки */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+#pickov .plist::-webkit-scrollbar { display: none; } /* Chrome, Safari, Android */
 #pickov .popt{display:flex;align-items:center;gap:12px;padding:14px 18px;font-size:16px;cursor:pointer;border-bottom:1px solid var(--line);min-height:56px}
 #pickov .popt:last-child{border-bottom:none}
 #pickov .popt:active{background:rgba(255,255,255,.08)}
@@ -1007,7 +1030,6 @@ async function persistInfo() {
 
 /* ============ Экспорт / импорт ============ */
 async function saveFile(name, text, type) {
-  // 1. NATIVE (Capacitor APK)
   if (NATIVE && Capacitor.Plugins.Filesystem && Capacitor.Plugins.Share) {
     try {
       const { Filesystem, Share } = Capacitor.Plugins;
@@ -1021,7 +1043,6 @@ async function saveFile(name, text, type) {
     }
   }
 
-  // 2. PWA WEB SHARE API (Android/iOS)
   if (navigator.canShare && window.File) {
     try {
       const file = new File([text], name, { type: type });
@@ -1034,12 +1055,10 @@ async function saveFile(name, text, type) {
         return true;
       }
     } catch (err) {
-      if (err.name === 'AbortError') return false; // Пользователь отменил
-      // Если ошибка не связана с отменой, пробуем другие методы
+      if (err.name === 'AbortError') return false;
     }
   }
 
-  // 3. FILE SYSTEM ACCESS API (ПК)
   if (window.showSaveFilePicker) {
     try {
       const handle = await window.showSaveFilePicker({
@@ -1055,13 +1074,11 @@ async function saveFile(name, text, type) {
     }
   }
 
-  // 4. HUAWEI PWA FALLBACK (Классическое скачивание + копирование текста)
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([text], { type }));
   a.download = name; document.body.appendChild(a); a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
   
-  // Если это Huawei и он не умеет нормально скачивать, покажем окно с копированием кода
   const IS_HUAWEI = /HuaweiBrowser|HMSCore|HuaweiMobile/i.test(navigator.userAgent || '');
   if (IS_HUAWEI) {
     const root = modal(`
