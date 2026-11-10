@@ -113,32 +113,31 @@ details.faq .body li{margin-bottom:4px}
 #toast.show{opacity:1}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
 
-/* ====== ИСПРАВЛЕНИЕ КНОПКИ ВЫБОРА (Скриншот 3) ====== */
+/* ====== ИСПРАВЛЕНИЕ КНОПКИ ВЫБОРА ====== */
 .pick{
   display:flex; align-items:center; justify-content:space-between; width:100%;
   padding:14px 16px; border-radius:12px; 
   border:1px solid var(--line); 
-  background-color: var(--card2); /* Жестко задаем фон */
-  color: var(--text); /* Жестко задаем цвет текста */
+  background-color: var(--card2);
+  color: var(--text);
   font-size:16px; font-family:inherit; text-align:left; cursor:pointer;
-  -webkit-appearance: none; /* Убираем дефолтные стили iOS/Android */
+  -webkit-appearance: none;
   appearance: none;
   outline: none; box-sizing: border-box;
 }
 .pick span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pick i{flex:none;font-style:normal;color:var(--muted);font-size:14px;margin-left:10px}
 
-/* ====== ИСПРАВЛЕНИЕ ШТОРКИ И СКРОЛЛБАРА (Скриншот 1 и 4) ====== */
+/* ====== ИСПРАВЛЕНИЕ ШТОРКИ И СКРОЛЛБАРА ====== */
 #pickov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
 #pickov .plist{
   background:var(--card); width:100%; max-width:480px; max-height:70vh;
   overflow-y:auto; -webkit-overflow-scrolling:touch;
   border-radius:20px 20px 0 0; padding:6px 0 calc(12px + env(safe-area-inset-bottom));
-  /* Скрываем полосу прокрутки */
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
-#pickov .plist::-webkit-scrollbar { display: none; } /* Chrome, Safari, Android */
+#pickov .plist::-webkit-scrollbar { display: none; }
 #pickov .popt{display:flex;align-items:center;gap:12px;padding:14px 18px;font-size:16px;cursor:pointer;border-bottom:1px solid var(--line);min-height:56px}
 #pickov .popt:last-child{border-bottom:none}
 #pickov .popt:active{background:rgba(255,255,255,.08)}
@@ -1057,7 +1056,6 @@ async function saveFile(name, text, mime) {
   }
 
   // 2. Системное окно сохранения для Huawei PWA и заблокированных систем
-  // Ждем, пока пользователь нажмет кнопку и вернем результат
   const result = await huaweiAppDialog(name, text, baseMime);
   return result;
 }
@@ -1083,7 +1081,6 @@ function huaweiAppDialog(name, text, baseMime) {
       <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
     `);
 
-    // Если нажали "Скачать" - считаем, что сохранили
     root.querySelector('#hw_download').onclick = () => {
       resolve('saved');
     };
@@ -1100,14 +1097,12 @@ function huaweiAppDialog(name, text, baseMime) {
           4. Переименуйте файл в <b style="color:var(--primary)">${name}</b><br>
           <span style="color: var(--muted); font-size: 12px;">(важно: расширение должно быть .json)</span>
         `;
-        // Если скопировали код - считаем, что сохранили
         resolve('saved');
       } catch (err) {
         root.querySelector('#copy_status').innerHTML = `<span style="color:var(--expense)">❌ Не удалось скопировать автоматически.</span><br><br>Пожалуйста, выделите и скопируйте текст вручную.`;
       }
     };
 
-    // Если закрыли окно крестиком или кнопкой "Закрыть" - отменяем
     root.querySelector('#hw_close').onclick = () => {
       closeModal();
       resolve('cancelled');
@@ -1119,7 +1114,7 @@ const backupDone = async () => { S.settings.lastBackup = Date.now(); await saveS
 async function exportJSON() {
   const data = { app: 'moneykeeper', version: 1, exported: new Date().toISOString(), settings: S.settings, accounts: S.accounts, categories: S.categories, transactions: S.transactions, budgets: S.budgets, recurring: S.recurring };
   const r = await saveFile(`budget-${today()}.json`, JSON.stringify(data), 'application/json');
-  if (r === 'saved') await backupDone(); // Обновится ТОЛЬКО если r === 'saved'
+  if (r === 'saved') await backupDone();
 }
 function exportCSV() {
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -1142,6 +1137,12 @@ async function importData(txt) {
   for (const s of ['accounts', 'categories', 'transactions', 'budgets', 'recurring']) for (const o of (d[s] || [])) await dbPut(s, o);
   await dbPut('meta', { id: 'settings', ...(d.settings || {}) });
   await loadAll(); sendMode(); render(); toast('Данные восстановлены');
+}
+async function wipe() {
+  if (!confirm('Удалить ВСЕ данные без возможности восстановления?')) return;
+  if (!confirm('Точно удалить? Сделайте копию, если не уверены.')) return;
+  for (const s of STORES) await dbClear(s);
+  await seed(); await loadAll(); U.sub = null; render();
 }
 
 /* ============ Рендер и события ============ */
