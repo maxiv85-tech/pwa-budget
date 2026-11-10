@@ -113,32 +113,31 @@ details.faq .body li{margin-bottom:4px}
 #toast.show{opacity:1}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
 
-/* ====== ИСПРАВЛЕНИЕ КНОПКИ ВЫБОРА (Скриншот 3) ====== */
+/* ====== ИСПРАВЛЕНИЕ КНОПКИ ВЫБОРА ====== */
 .pick{
   display:flex; align-items:center; justify-content:space-between; width:100%;
   padding:14px 16px; border-radius:12px; 
   border:1px solid var(--line); 
-  background-color: var(--card2); /* Жестко задаем фон */
-  color: var(--text); /* Жестко задаем цвет текста */
+  background-color: var(--card2);
+  color: var(--text);
   font-size:16px; font-family:inherit; text-align:left; cursor:pointer;
-  -webkit-appearance: none; /* Убираем дефолтные стили iOS/Android */
+  -webkit-appearance: none;
   appearance: none;
   outline: none; box-sizing: border-box;
 }
 .pick span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pick i{flex:none;font-style:normal;color:var(--muted);font-size:14px;margin-left:10px}
 
-/* ====== ИСПРАВЛЕНИЕ ШТОРКИ И СКРОЛЛБАРА (Скриншот 1 и 4) ====== */
+/* ====== ИСПРАВЛЕНИЕ ШТОРКИ И СКРОЛЛБАРА ====== */
 #pickov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
 #pickov .plist{
   background:var(--card); width:100%; max-width:480px; max-height:70vh;
   overflow-y:auto; -webkit-overflow-scrolling:touch;
   border-radius:20px 20px 0 0; padding:6px 0 calc(12px + env(safe-area-inset-bottom));
-  /* Скрываем полосу прокрутки */
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
-#pickov .plist::-webkit-scrollbar { display: none; } /* Chrome, Safari, Android */
+#pickov .plist::-webkit-scrollbar { display: none; }
 #pickov .popt{display:flex;align-items:center;gap:12px;padding:14px 18px;font-size:16px;cursor:pointer;border-bottom:1px solid var(--line);min-height:56px}
 #pickov .popt:last-child{border-bottom:none}
 #pickov .popt:active{background:rgba(255,255,255,.08)}
@@ -697,9 +696,25 @@ function viewStats() {
   mt.forEach(t => by[t.categoryId] = (by[t.categoryId] || 0) + t.amount);
   const arr = Object.entries(by).map(([id, v]) => ({ k: id, c: catOf(Number(id)), v: r2(v) })).sort((a, b) => b.v - a.v);
   const total = r2(arr.reduce((s, x) => s + x.v, 0));
+
+  // --- ФИКС ПРОЦЕНТОВ ---
+  let sumFloors = 0;
+  arr.forEach(x => {
+    x.exactPct = total ? (x.v / total * 100) : 0;
+    x.pct = Math.floor(x.exactPct);
+    x.rem = x.exactPct - x.pct;
+    sumFloors += x.pct;
+  });
+  let diffPct = total ? (100 - sumFloors) : 0;
+  const sortedByRem = [...arr].sort((a, b) => b.rem - a.rem);
+  for (let i = 0; i < diffPct; i++) {
+    if (sortedByRem[i]) sortedByRem[i].pct += 1;
+  }
+  // -----------------------
+
   let off = 25;
   const segs = arr.map(x => {
-    const p = x.v / total * 100, col = x.c ? x.c.color : '#666';
+    const p = total ? x.v / total * 100 : 0, col = x.c ? x.c.color : '#666';
     const s = `<circle cx="21" cy="21" r="15.9155" fill="none" stroke="${col}" stroke-width="5" stroke-dasharray="${p} ${100 - p}" stroke-dashoffset="${off}"/>`;
     off -= p; return s;
   }).join('');
@@ -718,7 +733,7 @@ function viewStats() {
   return `<h1>Статистика</h1>${monthBar()}
     <div class="tabs"><button class="e ${type === 'expense' ? 'on' : ''}" data-act="statType" data-v="expense">Расходы</button><button class="i ${type === 'income' ? 'on' : ''}" data-act="statType" data-v="income">Доходы</button></div>
     <div class="card">${donut}</div>
-    <div class="legend">${arr.map(x => `<div class="tx" data-act="statCat" data-id="${esc(x.k)}"><span class="dot" style="background:${x.c ? x.c.color : '#666'}"></span><div class="grow name">${x.c ? esc(x.c.icon) + ' ' + esc(x.c.name) : 'Без категории'}</div><div class="muted">${Math.round(x.v / total * 100)}%</div><div class="amt">${fmt(x.v)}</div><span class="muted">›</span></div>`).join('')}</div>
+    <div class="legend">${arr.map(x => `<div class="tx" data-act="statCat" data-id="${esc(x.k)}"><span class="dot" style="background:${x.c ? x.c.color : '#666'}"></span><div class="grow name">${x.c ? esc(x.c.icon) + ' ' + esc(x.c.name) : 'Без категории'}</div><div class="muted">${x.pct}%</div><div class="amt">${fmt(x.v)}</div><span class="muted">›</span></div>`).join('')}</div>
     <h3>Динамика за 6 месяцев</h3>
     <div class="card"><svg viewBox="0 0 320 145" style="width:100%">${bars}</svg>
       <div class="row" style="justify-content:center;font-size:12px"><span class="dot" style="background:#03dac6"></span>Доходы <span class="dot" style="background:#cf6679;margin-left:10px"></span>Расходы</div></div>`;
@@ -1057,48 +1072,58 @@ async function saveFile(name, text, mime) {
   }
 
   // 2. Системное окно сохранения для Huawei PWA и заблокированных систем
-  huaweiAppDialog(name, text, baseMime);
-  return 'saved';
+  const result = await huaweiAppDialog(name, text, baseMime);
+  return result;
 }
 
 function huaweiAppDialog(name, text, baseMime) {
-  const dataUri = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
+  return new Promise((resolve) => {
+    const dataUri = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
 
-  const root = modal(`
-    <h2>Сохранение резервной копии</h2>
-    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
-      Оболочка PWA блокирует прямое скачивание файлов. Используйте один из способов:
-    </div>
-    
-    <a href="${dataUri}" download="${name}" target="_blank" class="btn" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
-      📥 Попробовать скачать файл
-    </a>
+    const root = modal(`
+      <h2>Сохранение резервной копии</h2>
+      <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
+        Оболочка PWA блокирует прямое скачивание файлов. Используйте один из способов:
+      </div>
+      
+      <a href="${dataUri}" download="${name}" target="_blank" class="btn" id="hw_download" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
+        📥 Попробовать скачать файл
+      </a>
 
-    <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
-    
-    <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
+      <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
+      
+      <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
 
-    <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
-  `);
+      <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
+    `);
 
-  root.querySelector('#hw_copy').onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      root.querySelector('#copy_status').innerHTML = `
-        <b style="color:var(--income); font-size: 16px; display: block; margin-bottom: 8px;">✅ Код скопирован!</b>
-        <b>Как сохранить:</b><br><br>
-        1. Откройте файловый менеджер (например, «Файлы»).<br>
-        2. Создайте новый текстовый файл.<br>
-        3. Вставьте скопированный код.<br>
-        4. Переименуйте файл в <b style="color:var(--primary)">${name}</b><br>
-        <span style="color: var(--muted); font-size: 12px;">(важно: расширение должно быть .json)</span>
-      `;
-    } catch (err) {
-      root.querySelector('#copy_status').innerHTML = `<span style="color:var(--expense)">❌ Не удалось скопировать автоматически.</span><br><br>Пожалуйста, выделите и скопируйте текст вручную.`;
-    }
-  };
+    root.querySelector('#hw_download').onclick = () => {
+      resolve('saved');
+    };
 
-  root.querySelector('#hw_close').onclick = closeModal;
+    root.querySelector('#hw_copy').onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        root.querySelector('#copy_status').innerHTML = `
+          <b style="color:var(--income); font-size: 16px; display: block; margin-bottom: 8px;">✅ Код скопирован!</b>
+          <b>Как сохранить:</b><br><br>
+          1. Откройте файловый менеджер (например, «Файлы»).<br>
+          2. Создайте новый текстовый файл.<br>
+          3. Вставьте скопированный код.<br>
+          4. Переименуйте файл в <b style="color:var(--primary)">${name}</b><br>
+          <span style="color: var(--muted); font-size: 12px;">(важно: расширение должно быть .json)</span>
+        `;
+        resolve('saved');
+      } catch (err) {
+        root.querySelector('#copy_status').innerHTML = `<span style="color:var(--expense)">❌ Не удалось скопировать автоматически.</span><br><br>Пожалуйста, выделите и скопируйте текст вручную.`;
+      }
+    };
+
+    root.querySelector('#hw_close').onclick = () => {
+      closeModal();
+      resolve('cancelled');
+    };
+  });
 }
 
 const backupDone = async () => { S.settings.lastBackup = Date.now(); await saveSettings(); render(); };
