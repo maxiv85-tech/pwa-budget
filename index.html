@@ -113,31 +113,32 @@ details.faq .body li{margin-bottom:4px}
 #toast.show{opacity:1}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
 
-/* ====== ИСПРАВЛЕНИЕ КНОПКИ ВЫБОРА ====== */
+/* ====== ИСПРАВЛЕНИЕ КНОПКИ ВЫБОРА (Скриншот 3) ====== */
 .pick{
   display:flex; align-items:center; justify-content:space-between; width:100%;
   padding:14px 16px; border-radius:12px; 
   border:1px solid var(--line); 
-  background-color: var(--card2);
-  color: var(--text);
+  background-color: var(--card2); /* Жестко задаем фон */
+  color: var(--text); /* Жестко задаем цвет текста */
   font-size:16px; font-family:inherit; text-align:left; cursor:pointer;
-  -webkit-appearance: none;
+  -webkit-appearance: none; /* Убираем дефолтные стили iOS/Android */
   appearance: none;
   outline: none; box-sizing: border-box;
 }
 .pick span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pick i{flex:none;font-style:normal;color:var(--muted);font-size:14px;margin-left:10px}
 
-/* ====== ИСПРАВЛЕНИЕ ШТОРКИ И СКРОЛЛБАРА ====== */
+/* ====== ИСПРАВЛЕНИЕ ШТОРКИ И СКРОЛЛБАРА (Скриншот 1 и 4) ====== */
 #pickov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
 #pickov .plist{
   background:var(--card); width:100%; max-width:480px; max-height:70vh;
   overflow-y:auto; -webkit-overflow-scrolling:touch;
   border-radius:20px 20px 0 0; padding:6px 0 calc(12px + env(safe-area-inset-bottom));
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  /* Скрываем полосу прокрутки */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
-#pickov .plist::-webkit-scrollbar { display: none; }
+#pickov .plist::-webkit-scrollbar { display: none; } /* Chrome, Safari, Android */
 #pickov .popt{display:flex;align-items:center;gap:12px;padding:14px 18px;font-size:16px;cursor:pointer;border-bottom:1px solid var(--line);min-height:56px}
 #pickov .popt:last-child{border-bottom:none}
 #pickov .popt:active{background:rgba(255,255,255,.08)}
@@ -1056,58 +1057,48 @@ async function saveFile(name, text, mime) {
   }
 
   // 2. Системное окно сохранения для Huawei PWA и заблокированных систем
-  const result = await huaweiAppDialog(name, text, baseMime);
-  return result;
+  huaweiAppDialog(name, text, baseMime);
+  return 'saved';
 }
 
 function huaweiAppDialog(name, text, baseMime) {
-  return new Promise((resolve) => {
-    const dataUri = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
+  const dataUri = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
 
-    const root = modal(`
-      <h2>Сохранение резервной копии</h2>
-      <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
-        Оболочка PWA блокирует прямое скачивание файлов. Используйте один из способов:
-      </div>
-      
-      <a href="${dataUri}" download="${name}" target="_blank" class="btn" id="hw_download" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
-        📥 Попробовать скачать файл
-      </a>
+  const root = modal(`
+    <h2>Сохранение резервной копии</h2>
+    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
+      Оболочка PWA блокирует прямое скачивание файлов. Используйте один из способов:
+    </div>
+    
+    <a href="${dataUri}" download="${name}" target="_blank" class="btn" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
+      📥 Попробовать скачать файл
+    </a>
 
-      <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
-      
-      <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
+    <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
+    
+    <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
 
-      <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
-    `);
+    <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
+  `);
 
-    root.querySelector('#hw_download').onclick = () => {
-      resolve('saved');
-    };
+  root.querySelector('#hw_copy').onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      root.querySelector('#copy_status').innerHTML = `
+        <b style="color:var(--income); font-size: 16px; display: block; margin-bottom: 8px;">✅ Код скопирован!</b>
+        <b>Как сохранить:</b><br><br>
+        1. Откройте файловый менеджер (например, «Файлы»).<br>
+        2. Создайте новый текстовый файл.<br>
+        3. Вставьте скопированный код.<br>
+        4. Переименуйте файл в <b style="color:var(--primary)">${name}</b><br>
+        <span style="color: var(--muted); font-size: 12px;">(важно: расширение должно быть .json)</span>
+      `;
+    } catch (err) {
+      root.querySelector('#copy_status').innerHTML = `<span style="color:var(--expense)">❌ Не удалось скопировать автоматически.</span><br><br>Пожалуйста, выделите и скопируйте текст вручную.`;
+    }
+  };
 
-    root.querySelector('#hw_copy').onclick = async () => {
-      try {
-        await navigator.clipboard.writeText(text);
-        root.querySelector('#copy_status').innerHTML = `
-          <b style="color:var(--income); font-size: 16px; display: block; margin-bottom: 8px;">✅ Код скопирован!</b>
-          <b>Как сохранить:</b><br><br>
-          1. Откройте файловый менеджер (например, «Файлы»).<br>
-          2. Создайте новый текстовый файл.<br>
-          3. Вставьте скопированный код.<br>
-          4. Переименуйте файл в <b style="color:var(--primary)">${name}</b><br>
-          <span style="color: var(--muted); font-size: 12px;">(важно: расширение должно быть .json)</span>
-        `;
-        resolve('saved');
-      } catch (err) {
-        root.querySelector('#copy_status').innerHTML = `<span style="color:var(--expense)">❌ Не удалось скопировать автоматически.</span><br><br>Пожалуйста, выделите и скопируйте текст вручную.`;
-      }
-    };
-
-    root.querySelector('#hw_close').onclick = () => {
-      closeModal();
-      resolve('cancelled');
-    };
-  });
+  root.querySelector('#hw_close').onclick = closeModal;
 }
 
 const backupDone = async () => { S.settings.lastBackup = Date.now(); await saveSettings(); render(); };
