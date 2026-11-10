@@ -19,7 +19,7 @@ html,body{margin:0;overscroll-behavior:none;touch-action:pan-x pan-y}
 html{background:#121212}
 .sheet{overscroll-behavior:contain}
 body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px}
-#app{max-width:480px;margin:0 auto;padding:calc(16px + env(safe-area-inset-top)) 16px calc(150px + env(safe-area-inset-bottom))}
+#app{max-width:480px;min-height:100vh;min-height:100dvh;margin:0 auto;padding:calc(16px + env(safe-area-inset-top)) 16px calc(150px + env(safe-area-inset-bottom))}
 h1{font-size:22px;margin:0 0 14px}
 h3{font-size:16px;margin:22px 0 10px;font-weight:600}
 .muted{color:var(--muted)}
@@ -47,14 +47,7 @@ h3{font-size:16px;margin:22px 0 10px;font-weight:600}
 .sub{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
 .amt{font-weight:600;white-space:nowrap}
 .dayhead{font-size:13px;color:var(--muted);margin:16px 2px 8px}
-
-/* Счета: скрываем белые полосы прокрутки */
-.accs{
-  display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;
-  -ms-overflow-style:none; scrollbar-width:none;
-}
-.accs::-webkit-scrollbar { display: none; }
-
+.accs{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px}
 .acc{flex:none;min-width:140px;background:var(--card);border-radius:16px;padding:12px 14px;border-left:4px solid var(--primary)}
 .acc .b{font-weight:600;margin-top:4px}
 input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;font-family:inherit}
@@ -83,31 +76,8 @@ label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
 .fab{position:fixed;bottom:calc(76px + env(safe-area-inset-bottom));right:max(16px,calc(50% - 224px));width:58px;height:58px;border-radius:50%;border:none;background:var(--primary);color:#000;font-size:30px;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:6;cursor:pointer}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center;z-index:20}
 #modal.open{display:flex}
-
-/* Модальное окно: тонкий темный скроллбар на ПК */
-.sheet{
-  background:var(--card);width:100%;max-width:480px;max-height:calc(100% - env(safe-area-inset-top) - 10px);
-  overflow-y:auto;overflow-x:hidden;border-radius:24px 24px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom));
-  position:relative;
-  scrollbar-width:thin; scrollbar-color:#4a4a4a transparent;
-}
-.sheet::-webkit-scrollbar { width:6px; }
-.sheet::-webkit-scrollbar-track { background:transparent; }
-.sheet::-webkit-scrollbar-thumb { background:#4a4a4a; border-radius:10px; }
-.sheet::-webkit-scrollbar-thumb:hover { background:#666; }
-
-.sheet h2{margin:0 0 6px;font-size:18px;padding-right:24px;}
-
-/* Кнопка закрытия [X] для ПК */
-.close-btn {
-  position:absolute; top:14px; right:14px;
-  background:transparent; border:none; color:var(--muted);
-  font-size:26px; line-height:1; cursor:pointer;
-  padding:4px 8px; border-radius:8px; z-index:10;
-}
-.close-btn:hover { color:var(--text); }
-@media (pointer: coarse) { .close-btn { display: none !important; } }
-
+.sheet{background:var(--card);width:100%;max-width:480px;max-height:calc(100% - env(safe-area-inset-top) - 10px);overflow-y:auto;overflow-x:hidden;border-radius:24px 24px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom))}
+.sheet h2{margin:0 0 6px;font-size:18px}
 .amount-in{font-size:32px;font-weight:700;text-align:center;padding:14px}
 .catgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .cat{background:var(--card2);border:1px solid transparent;border-radius:12px;padding:8px 2px;text-align:center;font-size:11px;cursor:pointer;color:var(--text)}
@@ -189,8 +159,6 @@ details.faq .body li{margin-bottom:4px}
 <script>
 'use strict';
 const NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
-const IS_MOBILE = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
-
 /* ============ Хранилище: IndexedDB ============ */
 const DB_NAME = 'MoneyKeeperDB';
 const STORES = ['accounts', 'categories', 'transactions', 'budgets', 'recurring', 'meta'];
@@ -370,13 +338,7 @@ function enhanceSelects(root) {
 }
 function modal(html) {
   const m = $('#modal');
-  const closeBtn = !IS_MOBILE ? `<button class="close-btn" data-act="backdrop" aria-label="Закрыть">&times;</button>` : '';
-  
-  m.innerHTML = `<div class="sheet" data-stop="1">
-    ${closeBtn}
-    ${html}
-  </div>`;
-  
+  m.innerHTML = `<div class="sheet" data-stop="1">${html}</div>`;
   m.classList.add('open');
   if (!modalOpen) { if (!NATIVE) history.pushState({ m: 1 }, ''); modalOpen = true; }
   enhanceSelects(m.firstChild);
@@ -1260,10 +1222,6 @@ document.addEventListener('click', e => {
 }, { passive: false }));
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && modalOpen) {
-    closeModal();
-    return;
-  }
   if (e.key !== 'Enter') return;
   const t = e.target;
   if (t.tagName !== 'INPUT' || t.type === 'checkbox' || t.type === 'file') return;
