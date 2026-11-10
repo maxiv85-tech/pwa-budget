@@ -13,11 +13,7 @@
 <meta name="apple-mobile-web-app-title" content="Бюджет">
 <title>Мой Бюджет</title>
 <style>
-:root{
-  color-scheme: dark; /* Говорит браузеру не делать принудительную светлую тему */
-  --bg:#121212;--card:#1e1e1e;--card2:#262626;--text:#fff;--muted:#a3a3a3;
-  --primary:#bb86fc;--expense:#cf6679;--income:#03dac6;--warn:#ffb74d;--line:#303030
-}
+:root{--bg:#121212;--card:#1e1e1e;--card2:#262626;--text:#fff;--muted:#a3a3a3;--primary:#bb86fc;--expense:#cf6679;--income:#03dac6;--warn:#ffb74d;--line:#303030}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;overscroll-behavior:none;touch-action:pan-x pan-y}
 html{background:#121212}
@@ -61,7 +57,7 @@ input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--l
 }
 input[type=checkbox]{width:20px;height:20px}
 label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
-.btn{width:100%;padding:14px;border-radius:12px;border:none;background:var(--primary);color:#000;font-weight:700;font-size:16px;cursor:pointer;margin-top:14px; display:block; text-align:center; text-decoration:none;}
+.btn{width:100%;padding:14px;border-radius:12px;border:none;background:var(--primary);color:#000;font-weight:700;font-size:16px;cursor:pointer;margin-top:14px}
 .btn.sec{background:var(--card2);color:var(--text)}
 .btn.danger{background:transparent;color:var(--expense);border:1px solid var(--expense)}
 .btn:active{transform:scale(.98)}
@@ -80,21 +76,8 @@ label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
 .fab{position:fixed;bottom:calc(76px + env(safe-area-inset-bottom));right:max(16px,calc(50% - 224px));width:58px;height:58px;border-radius:50%;border:none;background:var(--primary);color:#000;font-size:30px;box-shadow:0 6px 18px rgba(0,0,0,.5);z-index:6;cursor:pointer}
 #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:flex-end;justify-content:center;z-index:20}
 #modal.open{display:flex}
-.sheet{background:#1e1e1e; color:#fff; width:100%;max-width:480px;max-height:calc(100% - env(safe-area-inset-top) - 10px);overflow-y:auto;overflow-x:hidden;border-radius:24px 24px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom))}
-.sheet h2{margin:0 0 6px;font-size:18px;color:#fff}
-
-/* Идеально ровный кастомный выбор (шторка) */
-#pickov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
-#pickov .plist{background:#1e1e1e; color:#fff; width:100%;max-width:480px;max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch;border-radius:20px 20px 0 0;padding:6px 0 calc(12px + env(safe-area-inset-bottom))}
-#pickov .popt{display:flex;align-items:center;gap:12px;padding:14px 18px;font-size:16px;cursor:pointer;border-bottom:1px solid #303030;min-height:56px;color:#fff}
-#pickov .popt:last-child{border-bottom:none}
-#pickov .popt:active{background:rgba(255,255,255,.08)}
-#pickov .popt .ic{flex:none;width:30px;text-align:center;font-size:20px;line-height:1}
-#pickov .popt .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#fff}
-#pickov .popt .r{flex:none;margin-left:auto;width:22px;height:22px;box-sizing:border-box;border-radius:50%;border:2px solid #a3a3a3;position:relative}
-#pickov .popt.on .r{border-color:#bb86fc}
-#pickov .popt.on .r::after{content:"";position:absolute;inset:3px;border-radius:50%;background:#bb86fc}
-
+.sheet{background:var(--card);width:100%;max-width:480px;max-height:calc(100% - env(safe-area-inset-top) - 10px);overflow-y:auto;overflow-x:hidden;border-radius:24px 24px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom))}
+.sheet h2{margin:0 0 6px;font-size:18px}
 .amount-in{font-size:32px;font-weight:700;text-align:center;padding:14px}
 .catgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .cat{background:var(--card2);border:1px solid transparent;border-radius:12px;padding:8px 2px;text-align:center;font-size:11px;cursor:pointer;color:var(--text)}
@@ -129,6 +112,41 @@ details.faq .body li{margin-bottom:4px}
 #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#3a3a3a;color:#fff;padding:10px 18px;border-radius:22px;font-size:14px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none;white-space:normal;text-align:center;line-height:1.4;width:max-content;max-width:calc(100vw - 32px)}
 #toast.show{opacity:1}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
+
+/* ====== ИСПРАВЛЕНИЕ КНОПКИ ВЫБОРА (Скриншот 3) ====== */
+.pick{
+  display:flex; align-items:center; justify-content:space-between; width:100%;
+  padding:14px 16px; border-radius:12px; 
+  border:1px solid var(--line); 
+  background-color: var(--card2); /* Жестко задаем фон */
+  color: var(--text); /* Жестко задаем цвет текста */
+  font-size:16px; font-family:inherit; text-align:left; cursor:pointer;
+  -webkit-appearance: none; /* Убираем дефолтные стили iOS/Android */
+  appearance: none;
+  outline: none; box-sizing: border-box;
+}
+.pick span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pick i{flex:none;font-style:normal;color:var(--muted);font-size:14px;margin-left:10px}
+
+/* ====== ИСПРАВЛЕНИЕ ШТОРКИ И СКРОЛЛБАРА (Скриншот 1 и 4) ====== */
+#pickov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
+#pickov .plist{
+  background:var(--card); width:100%; max-width:480px; max-height:70vh;
+  overflow-y:auto; -webkit-overflow-scrolling:touch;
+  border-radius:20px 20px 0 0; padding:6px 0 calc(12px + env(safe-area-inset-bottom));
+  /* Скрываем полосу прокрутки */
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+#pickov .plist::-webkit-scrollbar { display: none; } /* Chrome, Safari, Android */
+#pickov .popt{display:flex;align-items:center;gap:12px;padding:14px 18px;font-size:16px;cursor:pointer;border-bottom:1px solid var(--line);min-height:56px}
+#pickov .popt:last-child{border-bottom:none}
+#pickov .popt:active{background:rgba(255,255,255,.08)}
+#pickov .popt .ic{flex:none;width:30px;text-align:center;font-size:20px;line-height:1}
+#pickov .popt .t{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pickov .popt .r{flex:none;margin-left:auto;width:22px;height:22px;box-sizing:border-box;border-radius:50%;border:2px solid var(--muted);position:relative}
+#pickov .popt.on .r{border-color:var(--primary)}
+#pickov .popt.on .r::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--primary)}
 </style>
 </head>
 <body>
@@ -141,6 +159,7 @@ details.faq .body li{margin-bottom:4px}
 
 <script>
 'use strict';
+const NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
 /* ============ Хранилище: IndexedDB ============ */
 const DB_NAME = 'MoneyKeeperDB';
 const STORES = ['accounts', 'categories', 'transactions', 'budgets', 'recurring', 'meta'];
@@ -322,7 +341,7 @@ function modal(html) {
   const m = $('#modal');
   m.innerHTML = `<div class="sheet" data-stop="1">${html}</div>`;
   m.classList.add('open');
-  if (!modalOpen) { history.pushState({ m: 1 }, ''); modalOpen = true; }
+  if (!modalOpen) { if (!NATIVE) history.pushState({ m: 1 }, ''); modalOpen = true; }
   enhanceSelects(m.firstChild);
   return m.firstChild;
 }
@@ -332,7 +351,7 @@ function closeModal() {
   modalOpen = false;
   $('#modal').classList.remove('open');
   $('#modal').innerHTML = '';
-  if (history.state && history.state.m) history.back();
+  if (!NATIVE && history.state && history.state.m) history.back();
 }
 let lastBack = 0, toastTimer;
 function flash(msg, ms = 2000) {
@@ -732,16 +751,12 @@ function initAccDrag() {
   if (!list) return;
   list.addEventListener('contextmenu', e => e.preventDefault());
   const items = () => [...list.querySelectorAll(':scope > .menu')];
-  const HOLD = 280, SLOP = 16;
-
-  function gesture(row, x0, y0) {
-    let started = false, done = false, startY = y0, lastY = y0, raf = 0, timer = 0, lockY = 0;
+  const TOUCH = 'ontouchstart' in window;
+  const HOLD = 280;
+  const SLOP = 16;
+  const track = (row, mode, id, x0, y0) => {
+    let started = false, startY = y0, lastY = y0, raf = 0, timer = 0, lockY = 0, locked = false, prevOv = ['', ''];
     const apply = () => { row.style.transform = `translateY(${lastY - startY}px)`; };
-    const lockScroll = on => {
-      document.documentElement.style.overflow = on ? 'hidden' : '';
-      document.body.style.overflow = on ? 'hidden' : '';
-    };
-    const holdScroll = () => { if (Math.abs(window.scrollY - lockY) > 1) window.scrollTo(0, lockY); };
     const update = () => {
       apply();
       for (let guard = 0; guard < 12; guard++) {
@@ -756,84 +771,95 @@ function initAccDrag() {
         apply();
       }
     };
+    const hold = () => { if (started && Math.abs(window.scrollY - lockY) > 0.5) window.scrollTo(0, lockY); };
     const tick = () => {
-      if (!started || done) return;
-      holdScroll();
+      if (!started) return;
+      hold();
       const vh = window.innerHeight; let sp = 0;
       if (lastY < 90) sp = -Math.ceil((90 - lastY) / 6);
       else if (lastY > vh - 150) sp = Math.ceil((lastY - (vh - 150)) / 6);
-      if (sp) {
-        const before = window.scrollY; window.scrollBy(0, sp);
-        const real = window.scrollY - before; lockY = window.scrollY;
-        if (real) { startY -= real; update(); }
-      }
+      if (sp) { const before = window.scrollY; window.scrollBy(0, sp); const real = window.scrollY - before; lockY = window.scrollY; if (real) { startY -= real; update(); } }
       raf = requestAnimationFrame(tick);
     };
+    const lockScroll = () => {
+      lockY = window.scrollY; locked = true;
+      const de = document.documentElement, bd = document.body;
+      prevOv = [de.style.overflow, bd.style.overflow];
+      de.style.overflow = 'hidden'; bd.style.overflow = 'hidden';
+    };
+    const unlockScroll = () => {
+      if (!locked) return; locked = false;
+      document.documentElement.style.overflow = prevOv[0]; document.body.style.overflow = prevOv[1];
+    };
+    const cleanup = () => {
+      clearTimeout(timer); cancelAnimationFrame(raf);
+      document.removeEventListener('pointermove', pmove);
+      document.removeEventListener('pointerup', pend);
+      document.removeEventListener('pointercancel', pend);
+      row.removeEventListener('touchmove', tmove);
+      row.removeEventListener('touchend', tend);
+      row.removeEventListener('touchcancel', tend);
+      document.removeEventListener('touchend', tend);
+      document.removeEventListener('touchcancel', tend);
+      unlockScroll();
+    };
     const begin = () => {
-      if (done) return;
-      started = true; startY = lastY; lockY = window.scrollY;
-      lockScroll(true);
+      started = true; startY = lastY;
+      lockScroll();
       row.classList.add('dragging');
+      if (mode === 'pointer') { try { row.setPointerCapture(id); } catch (_) {} }
       if (navigator.vibrate) navigator.vibrate(15);
       raf = requestAnimationFrame(tick);
     };
-    function end() {
-      if (done) return false;
-      done = true; clearTimeout(timer); cancelAnimationFrame(raf);
-      if (!started) return false;
-      lockScroll(false);
+    const moveTo = (cx, cy) => {
+      lastY = cy;
+      if (!started) {
+        if (Math.abs(cx - x0) > SLOP || Math.abs(cy - y0) > SLOP) cleanup();
+        return;
+      }
+      update();
+    };
+    const finish = () => {
+      const was = started;
+      started = false; cleanup();
+      if (!was) return;
       row.style.transform = ''; row.classList.remove('dragging');
       suppressClickUntil = Date.now() + 400;
       saveAccOrder(items().map(x => Number(x.dataset.id)));
-      return true;
+    };
+    const pmove = ev => { if (ev.pointerId === id) moveTo(ev.clientX, ev.clientY); };
+    const pend = ev => { if (ev.pointerId === id) finish(); };
+    const findT = ev => [...ev.changedTouches].find(t => t.identifier === id);
+    const tmove = ev => {
+      const t = findT(ev); if (!t) return;
+      if (started && ev.cancelable) ev.preventDefault();
+      hold();
+      moveTo(t.clientX, t.clientY);
+    };
+    const tend = ev => { if (findT(ev)) finish(); };
+    if (mode === 'pointer') {
+      document.addEventListener('pointermove', pmove);
+      document.addEventListener('pointerup', pend);
+      document.addEventListener('pointercancel', pend);
+    } else {
+      row.addEventListener('touchmove', tmove, { passive: false });
+      row.addEventListener('touchend', tend);
+      row.addEventListener('touchcancel', tend);
+      document.addEventListener('touchend', tend);
+      document.addEventListener('touchcancel', tend);
     }
-    return {
-      start() { timer = setTimeout(begin, HOLD); },
-      move(x, y) {
-        if (done) return false;
-        lastY = y;
-        if (!started) { if (Math.abs(x - x0) > SLOP || Math.abs(y - y0) > SLOP) { done = true; clearTimeout(timer); } return false; }
-        holdScroll(); update(); return true;
-      },
-      end, alive: () => !done
-    };
-  }
-
+    timer = setTimeout(begin, HOLD);
+  };
   items().forEach(row => {
-    let g = null;
-    row.addEventListener('touchstart', e => {
-      if (g) { g.end(); g = null; }
+    if (TOUCH) row.addEventListener('touchstart', e => {
       if (e.touches.length !== 1) return;
-      const t = e.touches[0];
-      g = gesture(row, t.clientX, t.clientY); g.start();
+      const t = e.changedTouches[0];
+      track(row, 'touch', t.identifier, t.clientX, t.clientY);
     }, { passive: true });
-    row.addEventListener('touchmove', e => {
-      if (!g) return;
-      const t = e.touches[0];
-      if (g.move(t.clientX, t.clientY) && e.cancelable) e.preventDefault();
-      if (!g.alive()) g = null;
-    }, { passive: false });
-    const finish = e => {
-      if (!g) return;
-      const was = g.end(); g = null;
-      if (was && e.cancelable) e.preventDefault();
-    };
-    row.addEventListener('touchend', finish);
-    row.addEventListener('touchcancel', finish);
-
     row.addEventListener('pointerdown', e => {
-      if (e.pointerType !== 'mouse' || e.button !== 0) return;
-      const mg = gesture(row, e.clientX, e.clientY); mg.start();
-      const mv = ev => { mg.move(ev.clientX, ev.clientY); if (!mg.alive()) off(); };
-      const up = () => { mg.end(); off(); };
-      const off = () => {
-        document.removeEventListener('pointermove', mv);
-        document.removeEventListener('pointerup', up);
-        document.removeEventListener('pointercancel', up);
-      };
-      document.addEventListener('pointermove', mv);
-      document.addEventListener('pointerup', up);
-      document.addEventListener('pointercancel', up);
+      if (TOUCH && e.pointerType === 'touch') return;
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      track(row, 'pointer', e.pointerId, e.clientX, e.clientY);
     });
   });
 }
@@ -869,7 +895,6 @@ const back = t => `<div class="row" style="margin-bottom:14px"><button class="ic
 
 const APP_VERSION = '1.1.5';
 
-/* ---- Связь со service worker: режим обновлений и ручная проверка ---- */
 function sendMode() {
   if (!('serviceWorker' in navigator)) return;
   navigator.serviceWorker.ready.then(reg => {
@@ -1012,97 +1037,89 @@ if (IS_HUAWEI_BROWSER) {
 
 async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
+  const ext = name.slice(name.lastIndexOf('.'));
 
-  // 1. Web Share API (Системное окно "Поделиться")
-  if (navigator.share && navigator.canShare) {
+  // 1. Через File System Access API (ПК и поддерживающие браузеры)
+  if (window.showSaveFilePicker) {
     try {
-      const file = new File([text], name, { type: baseMime });
-      if (navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'Резервная копия' });
-        return 'saved';
-      }
-    } catch (e) {
-      if (e.name === 'AbortError') return 'cancelled';
+      const h = await window.showSaveFilePicker({ 
+        suggestedName: name, 
+        types: [{ description: 'Файл резервной копии', accept: { [baseMime]: [ext] } }] 
+      });
+      const w = await h.createWritable(); 
+      await w.write(text); 
+      await w.close();
+      flash('Файл успешно сохранён'); 
+      return 'saved';
+    } catch (e) { 
+      if (e && e.name === 'AbortError') return 'cancelled'; 
     }
   }
 
-  // 2. Стандартное скачивание (работает везде)
-  try {
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([text], { type: baseMime }));
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
-
-    // Если Huawei, показываем страховочное окно через 1 сек
-    if (IS_HUAWEI_BROWSER) {
-      setTimeout(() => huaweiAppDialog(name, text, baseMime), 1000);
-      return 'pending';
-    }
-    return 'saved';
-  } catch (e) {
-    huaweiAppDialog(name, text, baseMime);
-    return 'pending';
-  }
+  // 2. Системное окно сохранения для Huawei PWA и заблокированных систем
+  // Ждем, пока пользователь нажмет кнопку и вернем результат
+  const result = await huaweiAppDialog(name, text, baseMime);
+  return result;
 }
 
 function huaweiAppDialog(name, text, baseMime) {
-  const dataUri = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
-  let saved = false;
+  return new Promise((resolve) => {
+    const dataUri = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
 
-  const root = modal(`
-    <h2>Сохранение резервной копии</h2>
-    <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px;color:#a3a3a3">
-      Если скачивание не началось, используйте один из способов:
-    </div>
-    
-    <a href="${dataUri}" download="${name}" target="_blank" class="btn" id="hw_download" style="margin-top:14px;">
-      📥 Скачать файл вручную
-    </a>
+    const root = modal(`
+      <h2>Сохранение резервной копии</h2>
+      <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
+        Оболочка PWA блокирует прямое скачивание файлов. Используйте один из способов:
+      </div>
+      
+      <a href="${dataUri}" download="${name}" target="_blank" class="btn" id="hw_download" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
+        📥 Попробовать скачать файл
+      </a>
 
-    <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
-    
-    <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
+      <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
+      
+      <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
 
-    <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
-  `);
+      <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
+    `);
 
-  const markSaved = async () => {
-    if (saved) return;
-    saved = true;
-    S.settings.lastBackup = Date.now();
-    await saveSettings();
-    render();
-  };
+    // Если нажали "Скачать" - считаем, что сохранили
+    root.querySelector('#hw_download').onclick = () => {
+      resolve('saved');
+    };
 
-  root.querySelector('#hw_download').onclick = () => { markSaved(); };
+    root.querySelector('#hw_copy').onclick = async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        root.querySelector('#copy_status').innerHTML = `
+          <b style="color:var(--income); font-size: 16px; display: block; margin-bottom: 8px;">✅ Код скопирован!</b>
+          <b>Как сохранить:</b><br><br>
+          1. Откройте файловый менеджер (например, «Файлы»).<br>
+          2. Создайте новый текстовый файл.<br>
+          3. Вставьте скопированный код.<br>
+          4. Переименуйте файл в <b style="color:var(--primary)">${name}</b><br>
+          <span style="color: var(--muted); font-size: 12px;">(важно: расширение должно быть .json)</span>
+        `;
+        // Если скопировали код - считаем, что сохранили
+        resolve('saved');
+      } catch (err) {
+        root.querySelector('#copy_status').innerHTML = `<span style="color:var(--expense)">❌ Не удалось скопировать автоматически.</span><br><br>Пожалуйста, выделите и скопируйте текст вручную.`;
+      }
+    };
 
-  root.querySelector('#hw_copy').onclick = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      root.querySelector('#copy_status').innerHTML = `
-        <b style="color:var(--income); font-size: 16px; display: block; margin-bottom: 8px;">✅ Код скопирован!</b>
-        <b>Как сохранить:</b><br><br>
-        1. Откройте файловый менеджер.<br>
-        2. Создайте новый текстовый файл.<br>
-        3. Вставьте скопированный код.<br>
-        4. Переименуйте файл в <b style="color:var(--primary)">${name}</b>
-      `;
-      markSaved();
-    } catch (err) {
-      root.querySelector('#copy_status').innerHTML = `<span style="color:var(--expense)">❌ Не удалось скопировать автоматически.</span>`;
-    }
-  };
-
-  root.querySelector('#hw_close').onclick = closeModal;
+    // Если закрыли окно крестиком или кнопкой "Закрыть" - отменяем
+    root.querySelector('#hw_close').onclick = () => {
+      closeModal();
+      resolve('cancelled');
+    };
+  });
 }
 
 const backupDone = async () => { S.settings.lastBackup = Date.now(); await saveSettings(); render(); };
 async function exportJSON() {
   const data = { app: 'moneykeeper', version: 1, exported: new Date().toISOString(), settings: S.settings, accounts: S.accounts, categories: S.categories, transactions: S.transactions, budgets: S.budgets, recurring: S.recurring };
   const r = await saveFile(`budget-${today()}.json`, JSON.stringify(data), 'application/json');
-  if (r === 'saved') await backupDone();
+  if (r === 'saved') await backupDone(); // Обновится ТОЛЬКО если r === 'saved'
 }
 function exportCSV() {
   const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -1125,12 +1142,6 @@ async function importData(txt) {
   for (const s of ['accounts', 'categories', 'transactions', 'budgets', 'recurring']) for (const o of (d[s] || [])) await dbPut(s, o);
   await dbPut('meta', { id: 'settings', ...(d.settings || {}) });
   await loadAll(); sendMode(); render(); toast('Данные восстановлены');
-}
-async function wipe() {
-  if (!confirm('Удалить ВСЕ данные без возможности восстановления?')) return;
-  if (!confirm('Точно удалить? Сделайте копию, если не уверены.')) return;
-  for (const s of STORES) await dbClear(s);
-  await seed(); await loadAll(); U.sub = null; render();
 }
 
 /* ============ Рендер и события ============ */
@@ -1213,6 +1224,23 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', e => {
     if (e.data && e.data.type === 'update') flash('Доступна новая версия — перезапустите приложение', 6000);
   });
+}
+
+if (NATIVE) {
+  const P = Capacitor.Plugins;
+  if (P.StatusBar) { try { P.StatusBar.setBackgroundColor({ color: '#121212' }); P.StatusBar.setStyle({ style: 'DARK' }); } catch (_) {} }
+  if (P.App) {
+    let lastBackN = 0;
+    P.App.addListener('backButton', () => {
+      if (pickerEl) return closePicker();
+      if (modalOpen) return closeModal();
+      if (U.statCat) { U.statCat = null; return render(); }
+      if (U.sub) { U.sub = null; return render(); }
+      const t = Date.now();
+      if (t - lastBackN < 2000) return P.App.exitApp();
+      lastBackN = t; flash('Нажмите «Назад» ещё раз, чтобы выйти');
+    });
+  }
 }
 
 (async function init() {
