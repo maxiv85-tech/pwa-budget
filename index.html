@@ -48,7 +48,7 @@ h3{font-size:16px;margin:22px 0 10px;font-weight:600}
 .amt{font-weight:600;white-space:nowrap}
 .dayhead{font-size:13px;color:var(--muted);margin:16px 2px 8px}
 
-/* Контейнер со счетами (базовые стили) */
+/* Контейнер со счетами */
 .accs{
   display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;
 }
@@ -143,7 +143,7 @@ details.faq .body li{margin-bottom:4px}
 .pick span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pick i{flex:none;font-style:normal;color:var(--muted);font-size:14px;margin-left:10px}
 
-/* ====== ИСПРАВЛЕНИЕ ШТОРКИ И СКРОЛЛБАРА ====== */
+/* ====== ИСПРАВЛЕНИЕ ШТОРКИ ====== */
 #pickov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
 #pickov .plist{background:var(--card); width:100%; max-width:480px; max-height:70vh; overflow-y:auto; -webkit-overflow-scrolling:touch; border-radius:20px 20px 0 0; padding:6px 0 calc(12px + env(safe-area-inset-bottom));}
 #pickov .popt{display:flex;align-items:center;gap:12px;padding:14px 18px;font-size:16px;cursor:pointer;border-bottom:1px solid var(--line);min-height:56px}
@@ -155,45 +155,42 @@ details.faq .body li{margin-bottom:4px}
 #pickov .popt.on .r{border-color:var(--primary)}
 #pickov .popt.on .r::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--primary)}
 
-/* ============ НАСТРОЙКА СКРОЛЛБАРОВ ДЛЯ РАЗНЫХ УСТРОЙСТВ ============ */
+
+/* ============ НАСТРОЙКА СКРОЛЛБАРОВ ============ */
 /* 1. Для сенсорных экранов (смартфоны, планшеты) - полностью скрываем ВСЕ полосы */
 @media (pointer: coarse) {
   ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
   * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
 }
 
-/* 2. Для устройств с мышью (ПК, ноутбуки) - добавляем красивые тонкие полосы */
+/* 2. Для устройств с мышью (ПК, ноутбуки) */
 @media (pointer: fine) {
-  /* Скроллбар для списка счетов на главной */
+  /* Красивая горизонтальная полоса под счетами на главной */
   .accs {
-    padding-bottom: 8px; /* Даем место под скроллбар */
+    padding-bottom: 8px; /* Место под полосу */
     scrollbar-width: thin;
     scrollbar-color: #4a4a4a transparent;
   }
   .accs::-webkit-scrollbar { height: 6px; }
   .accs::-webkit-scrollbar-track { background: transparent; }
-  .accs::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 6px; }
+  .accs::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 10px; }
   .accs::-webkit-scrollbar-thumb:hover { background: #666; }
 
-  /* Скроллбар для модальных окон (шторок) */
+  /* В модальных окнах (шторках) ПК скрываем вертикальные полосы */
   .sheet {
-    scrollbar-width: thin;
-    scrollbar-color: #4a4a4a transparent;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
-  .sheet::-webkit-scrollbar { width: 6px; }
-  .sheet::-webkit-scrollbar-track { background: transparent; }
-  .sheet::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 10px; }
-  .sheet::-webkit-scrollbar-thumb:hover { background: #666; }
+  .sheet::-webkit-scrollbar { display: none; }
 
-  /* Скроллбар для выпадающего списка */
+  /* В списке выбора ПК скрываем вертикальные полосы */
   #pickov .plist {
-    scrollbar-width: thin;
-    scrollbar-color: #4a4a4a transparent;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
-  #pickov .plist::-webkit-scrollbar { width: 6px; }
-  #pickov .plist::-webkit-scrollbar-track { background: transparent; }
-  #pickov .plist::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 10px; }
+  #pickov .plist::-webkit-scrollbar { display: none; }
 }
+
 </style>
 </head>
 <body>
