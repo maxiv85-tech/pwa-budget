@@ -15,15 +15,11 @@
 <style>
 :root{--bg:#121212;--card:#1e1e1e;--card2:#262626;--text:#fff;--muted:#a3a3a3;--primary:#bb86fc;--expense:#cf6679;--income:#03dac6;--warn:#ffb74d;--line:#303030}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* ИСПРАВЛЕНО: Вернули overscroll-behavior: none для body */
 html{background:#121212;overscroll-behavior:none;height:-webkit-fill-available;}
-body{margin:0;touch-action:pan-x pan-y;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;}
+body{margin:0;overscroll-behavior:none;touch-action:pan-x pan-y;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;}
 .sheet{overscroll-behavior:contain}
-
-#app{
-  max-width:480px;margin:0 auto;
-  padding:calc(16px + env(safe-area-inset-top)) 16px calc(150px + env(safe-area-inset-bottom));
-  width:100%;flex:1;
-}
+#app{max-width:480px;margin:0 auto;padding:calc(16px + env(safe-area-inset-top)) 16px calc(150px + env(safe-area-inset-bottom));width:100%;flex:1;}
 h1{font-size:22px;margin:0 0 14px}
 h3{font-size:16px;margin:22px 0 10px;font-weight:600}
 .muted{color:var(--muted)}
@@ -52,10 +48,7 @@ h3{font-size:16px;margin:22px 0 10px;font-weight:600}
 .amt{font-weight:600;white-space:nowrap}
 .dayhead{font-size:13px;color:var(--muted);margin:16px 2px 8px}
 
-/* Контейнер со счетами */
-.accs{
-  display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;
-}
+.accs{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;margin-bottom:6px;}
 .acc{flex:none;min-width:140px;background:var(--card);border-radius:16px;padding:12px 14px;border-left:4px solid var(--primary)}
 .acc .b{font-weight:600;margin-top:4px}
 input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card2);color:var(--text);font-size:16px;font-family:inherit}
@@ -86,17 +79,9 @@ label{display:block;font-size:12px;color:var(--muted);margin:12px 0 4px}
 #modal.open{display:flex}
 .sheet{background:var(--card);width:100%;max-width:480px;max-height:calc(100% - env(safe-area-inset-top) - 10px);overflow-y:auto;overflow-x:hidden;border-radius:24px 24px 0 0;padding:18px 18px calc(24px + env(safe-area-inset-bottom));position:relative}
 .sheet h2{margin:0 0 6px;font-size:18px;padding-right:24px;}
-
-/* Кнопка закрытия [X] для ПК */
-.close-btn {
-  position:absolute; top:14px; right:14px;
-  background:transparent; border:none; color:var(--muted);
-  font-size:26px; line-height:1; cursor:pointer;
-  padding:4px 8px; border-radius:8px; z-index:10;
-}
-.close-btn:hover { color:var(--text); }
-@media (pointer: coarse) { .close-btn { display: none !important; } }
-
+.close-btn{position:absolute;top:14px;right:14px;background:transparent;border:none;color:var(--muted);font-size:26px;line-height:1;cursor:pointer;padding:4px 8px;border-radius:8px;z-index:10;}
+.close-btn:hover{color:var(--text);}
+@media (pointer: coarse){.close-btn{display:none !important;}}
 .amount-in{font-size:32px;font-weight:700;text-align:center;padding:14px}
 .catgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
 .cat{background:var(--card2);border:1px solid transparent;border-radius:12px;padding:8px 2px;text-align:center;font-size:11px;cursor:pointer;color:var(--text)}
@@ -131,25 +116,11 @@ details.faq .body li{margin-bottom:4px}
 #toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#3a3a3a;color:#fff;padding:10px 18px;border-radius:22px;font-size:14px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none;white-space:normal;text-align:center;line-height:1.4;width:max-content;max-width:calc(100vw - 32px)}
 #toast.show{opacity:1}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}
-
-/* ====== ИСПРАВЛЕНИЕ КНОПКИ ВЫБОРА ====== */
-.pick{
-  display:flex; align-items:center; justify-content:space-between; width:100%;
-  padding:14px 16px; border-radius:12px; 
-  border:1px solid var(--line); 
-  background-color: var(--card2);
-  color: var(--text);
-  font-size:16px; font-family:inherit; text-align:left; cursor:pointer;
-  -webkit-appearance: none;
-  appearance: none;
-  outline: none; box-sizing: border-box;
-}
+.pick{display:flex;align-items:center;justify-content:space-between;width:100%;padding:14px 16px;border-radius:12px;border:1px solid var(--line);background-color:var(--card2);color:var(--text);font-size:16px;font-family:inherit;text-align:left;cursor:pointer;-webkit-appearance:none;appearance:none;outline:none;box-sizing:border-box;}
 .pick span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pick i{flex:none;font-style:normal;color:var(--muted);font-size:14px;margin-left:10px}
-
-/* ====== ИСПРАВЛЕНИЕ ШТОРКИ ====== */
 #pickov{position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.6);display:flex;align-items:flex-end;justify-content:center}
-#pickov .plist{background:var(--card); width:100%; max-width:480px; max-height:70vh; overflow-y:auto; -webkit-overflow-scrolling:touch; border-radius:20px 20px 0 0; padding:6px 0 calc(12px + env(safe-area-inset-bottom));}
+#pickov .plist{background:var(--card);width:100%;max-width:480px;max-height:70vh;overflow-y:auto;-webkit-overflow-scrolling:touch;border-radius:20px 20px 0 0;padding:6px 0 calc(12px + env(safe-area-inset-bottom));}
 #pickov .popt{display:flex;align-items:center;gap:12px;padding:14px 18px;font-size:16px;cursor:pointer;border-bottom:1px solid var(--line);min-height:56px}
 #pickov .popt:last-child{border-bottom:none}
 #pickov .popt:active{background:rgba(255,255,255,.08)}
@@ -158,40 +129,21 @@ details.faq .body li{margin-bottom:4px}
 #pickov .popt .r{flex:none;margin-left:auto;width:22px;height:22px;box-sizing:border-box;border-radius:50%;border:2px solid var(--muted);position:relative}
 #pickov .popt.on .r{border-color:var(--primary)}
 #pickov .popt.on .r::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--primary)}
-
-
-/* ============ НАСТРОЙКА СКРОЛЛБАРОВ ============ */
-/* 1. Для сенсорных экранов (смартфоны, планшеты) - полностью скрываем ВСЕ полосы */
-@media (pointer: coarse) {
-  ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
-  * { -ms-overflow-style: none !important; scrollbar-width: none !important; }
+@media (pointer: coarse){
+  ::-webkit-scrollbar{display:none !important;width:0 !important;height:0 !important;}
+  *{-ms-overflow-style:none !important;scrollbar-width:none !important;}
 }
-
-/* 2. Для устройств с мышью (ПК, ноутбуки) */
-@media (pointer: fine) {
-  .accs {
-    padding-bottom: 8px;
-    scrollbar-width: thin;
-    scrollbar-color: #4a4a4a transparent;
-  }
-  .accs::-webkit-scrollbar { height: 6px; }
-  .accs::-webkit-scrollbar-track { background: transparent; }
-  .accs::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 10px; }
-  .accs::-webkit-scrollbar-thumb:hover { background: #666; }
-
-  .sheet {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .sheet::-webkit-scrollbar { display: none; }
-
-  #pickov .plist {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  #pickov .plist::-webkit-scrollbar { display: none; }
+@media (pointer: fine){
+  .accs{padding-bottom:8px;scrollbar-width:thin;scrollbar-color:#4a4a4a transparent;}
+  .accs::-webkit-scrollbar{height:6px;}
+  .accs::-webkit-scrollbar-track{background:transparent;}
+  .accs::-webkit-scrollbar-thumb{background:#4a4a4a;border-radius:10px;}
+  .accs::-webkit-scrollbar-thumb:hover{background:#666;}
+  .sheet{-ms-overflow-style:none;scrollbar-width:none;}
+  .sheet::-webkit-scrollbar{display:none;}
+  #pickov .plist{-ms-overflow-style:none;scrollbar-width:none;}
+  #pickov .plist::-webkit-scrollbar{display:none;}
 }
-
 </style>
 </head>
 <body>
@@ -208,7 +160,6 @@ const NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.is
 const IS_MOBILE = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-/* ============ Хранилище: IndexedDB ============ */
 const DB_NAME = 'MoneyKeeperDB';
 const STORES = ['accounts', 'categories', 'transactions', 'budgets', 'recurring', 'meta'];
 let db;
@@ -233,7 +184,6 @@ async function dbPut(s, o) { const k = await req(store(s, 'readwrite').put(o)); 
 const dbDel = (s, id) => req(store(s, 'readwrite').delete(id));
 const dbClear = s => req(store(s, 'readwrite').clear());
 
-/* ============ Состояние ============ */
 const S = { accounts: [], categories: [], transactions: [], budgets: [], recurring: [], settings: { currency: '₽', lastBackup: null } };
 let suppressClickUntil = 0;
 const sortAccounts = () => S.accounts.sort((a, b) => (a.order ?? a.id) - (b.order ?? b.id));
@@ -256,7 +206,6 @@ const DEFAULT_CATS = [
   ['income','Зарплата','💼','#03dac6'],['income','Подработка','💻','#64b5f6'],['income','Подарки','🎁','#f06292'],['income','Прочее','💰','#81c784']
 ];
 
-/* ============ Утилиты ============ */
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const r2 = n => Math.round(n * 100) / 100;
@@ -305,7 +254,6 @@ const sumBy = (arr, type) => r2(arr.filter(t => t.type === type).reduce((s, t) =
 const statList = arr => arr.filter(t => !t.skip).map(t => t.type === 'transfer' && t.asExpense ? { ...t, type: 'expense' } : t);
 const sortTx = a => a.slice().sort((x, y) => y.date.localeCompare(x.date) || y.id - x.id);
 
-/* ============ Загрузка / инициализация ============ */
 async function loadAll() {
   const [a, c, t, b, r, m] = await Promise.all(STORES.map(dbAll));
   Object.assign(S, { accounts: a, categories: c, transactions: t, budgets: b, recurring: r });
@@ -340,7 +288,6 @@ async function runRecurring() {
   }
 }
 
-/* ============ Модальные окна ============ */
 let modalOpen = false;
 let pickerEl = null;
 function closePicker() { if (pickerEl) { pickerEl.remove(); pickerEl = null; } }
@@ -388,12 +335,7 @@ function enhanceSelects(root) {
 function modal(html) {
   const m = $('#modal');
   const closeBtn = !IS_MOBILE ? `<button class="close-btn" data-act="backdrop" aria-label="Закрыть">&times;</button>` : '';
-  
-  m.innerHTML = `<div class="sheet" data-stop="1">
-    ${closeBtn}
-    ${html}
-  </div>`;
-  
+  m.innerHTML = `<div class="sheet" data-stop="1">${closeBtn}${html}</div>`;
   m.classList.add('open');
   if (!modalOpen) { if (!NATIVE) history.pushState({ m: 1 }, ''); modalOpen = true; }
   enhanceSelects(m.firstChild);
@@ -440,7 +382,6 @@ function wirePickers(root, cur) {
   root.querySelectorAll('#pc .col').forEach(el => el.onclick = () => { cur.color = el.dataset.c; root.querySelectorAll('#pc .col').forEach(x => x.classList.toggle('on', x === el)); });
 }
 
-/* ---- Операция / регулярный платёж ---- */
 function openTxModal(t, opt = {}) {
   const rec = !!opt.recurring;
   if (!S.accounts.length) return toast('Сначала создайте счёт: Ещё → Счета');
@@ -537,7 +478,6 @@ function openTxModal(t, opt = {}) {
   draw();
 }
 
-/* ---- Счёт ---- */
 function openAccModal(a) {
   const cur = a ? { ...a } : { name: '', initial: 0, icon: '💳', color: COLORS[0] };
   const root = modal(`
@@ -572,7 +512,6 @@ function openAccModal(a) {
   };
 }
 
-/* ---- Категория ---- */
 function openCatModal(c) {
   const cur = c ? { ...c } : { type: U.catType, name: '', icon: '📦', color: COLORS[0] };
   const root = modal(`
@@ -601,7 +540,6 @@ function openCatModal(c) {
   };
 }
 
-/* ---- Бюджет ---- */
 function openBudgetModal(b) {
   const cur = b ? { ...b } : { categoryId: 'all', limit: '' };
   const cats = S.categories.filter(c => c.type === 'expense');
@@ -625,7 +563,6 @@ function openBudgetModal(b) {
   if (del) del.onclick = async () => { await dbDel('budgets', b.id); S.budgets = S.budgets.filter(x => x.id !== b.id); closeModal(); render(); };
 }
 
-/* ---- Настройки ---- */
 function openSettings() {
   const root = modal(`
     <h2>Настройки</h2>
@@ -644,7 +581,6 @@ function openSettings() {
   };
 }
 
-/* ============ Представления ============ */
 function txRow(t, showDate) {
   let icon, title, sub, cls, sign, color = '#bb86fc';
   if (t.type === 'transfer') {
@@ -751,7 +687,6 @@ function viewStats() {
   const arr = Object.entries(by).map(([id, v]) => ({ k: id, c: catOf(Number(id)), v: r2(v) })).sort((a, b) => b.v - a.v);
   const total = r2(arr.reduce((s, x) => s + x.v, 0));
 
-  // --- ФИКС ПРОЦЕНТОВ ---
   let sumFloors = 0;
   arr.forEach(x => {
     x.exactPct = total ? (x.v / total * 100) : 0;
@@ -764,7 +699,6 @@ function viewStats() {
   for (let i = 0; i < diffPct; i++) {
     if (sortedByRem[i]) sortedByRem[i].pct += 1;
   }
-  // -----------------------
 
   let off = 25;
   const segs = arr.map(x => {
@@ -808,7 +742,6 @@ function viewBudgets() {
     <button class="btn" data-act="addBudget">Добавить бюджет</button>`;
 }
 
-/* ---- Перетаскивание счетов ---- */
 async function saveAccOrder(ids) {
   ids.forEach((id, i) => { const a = accOf(id); if (a) a.order = i + 1; });
   sortAccounts();
@@ -1097,7 +1030,6 @@ async function persistInfo() {
   el.textContent = p ? 'включена' : 'не гарантирована';
 }
 
-/* ============ Экспорт / импорт ============ */
 const IS_HUAWEI_BROWSER = /HuaweiBrowser|HMSCore|HuaweiMobile/i.test(navigator.userAgent || '');
 if (IS_HUAWEI_BROWSER) {
   const vp = document.querySelector('meta[name="viewport"]');
@@ -1108,22 +1040,22 @@ async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
   const ext = name.slice(name.lastIndexOf('.'));
 
-  // 1. Web Share API (Идеально для iOS)
-  if (isIOS && navigator.share) {
-    try {
-      const file = new File([text], name, { type: baseMime });
-      await navigator.share({
-        files: [file],
-        title: 'Резервная копия бюджета'
-      });
-      return 'saved';
-    } catch (e) {
-      if (e.name === 'AbortError') return 'cancelled';
-      console.warn('iOS Share failed:', e);
+  // 1. iOS: Используем ТОЛЬКО Web Share API и передаем ТОЛЬКО файл (без title)
+  if (isIOS) {
+    if (navigator.canShare && navigator.canShare({ files: [new File([text], name, { type: baseMime })] })) {
+      try {
+        const file = new File([text], name, { type: baseMime });
+        // Убрали title: '...', чтобы iOS не создавал лишний .txt файл
+        await navigator.share({ files: [file] });
+        return 'saved';
+      } catch (e) {
+        if (e.name === 'AbortError') return 'cancelled';
+      }
     }
+    return await huaweiAppDialog(name, text, baseMime, true);
   }
 
-  // 2. Через File System Access API (ПК и поддерживающие браузеры)
+  // 2. File System API для ПК
   if (window.showSaveFilePicker && !isIOS) {
     try {
       const h = await window.showSaveFilePicker({ 
@@ -1140,35 +1072,39 @@ async function saveFile(name, text, mime) {
     }
   }
 
-  // 3. Системное окно сохранения для Android, Huawei PWA и заблокированных систем
-  const result = await huaweiAppDialog(name, text, baseMime);
+  // 3. Android и остальное
+  const result = await huaweiAppDialog(name, text, baseMime, false);
   return result;
 }
 
-function huaweiAppDialog(name, text, baseMime) {
+function huaweiAppDialog(name, text, baseMime, isIOSFallback = false) {
   return new Promise((resolve) => {
     const dataUri = 'data:' + baseMime + ';charset=utf-8,' + encodeURIComponent(text);
 
     const root = modal(`
       <h2>Сохранение резервной копии</h2>
       <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
-        Браузер блокирует прямое скачивание. Используйте один из способов:
+        ${isIOSFallback 
+          ? 'Системное сохранение недоступно. Скопируйте код файла и сохраните его вручную.' 
+          : 'Браузер блокирует прямое скачивание. Используйте один из способов:'}
       </div>
       
+      ${!isIOSFallback ? `
       <a href="${dataUri}" download="${name}" target="_blank" class="btn" id="hw_download" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
         📥 Попробовать скачать файл
-      </a>
+      </a>` : ''}
 
-      <button class="btn sec" id="hw_copy" style="margin-top:8px">📋 Скопировать код файла</button>
+      <button class="btn ${!isIOSFallback ? 'sec' : ''}" id="hw_copy" style="margin-top:${!isIOSFallback ? '8px' : '14px'}">📋 Скопировать код файла</button>
       
       <div id="copy_status" class="sub" style="margin-top:10px; line-height: 1.5; white-space: normal;"></div>
 
       <button class="btn danger" style="background:transparent;border:1px solid var(--line);color:var(--text);margin-top:14px" id="hw_close">Закрыть</button>
     `);
 
-    root.querySelector('#hw_download').onclick = () => {
-      resolve('saved');
-    };
+    const dl = root.querySelector('#hw_download');
+    if (dl) {
+      dl.onclick = () => resolve('saved');
+    }
 
     root.querySelector('#hw_copy').onclick = async () => {
       try {
@@ -1230,7 +1166,6 @@ async function wipe() {
   await seed(); await loadAll(); U.sub = null; render();
 }
 
-/* ============ Рендер и события ============ */
 const NAV = [['home', '🏠', 'Главная'], ['ops', '🧾', 'Операции'], ['stats', '📊', 'Статистика'], ['budgets', '🎯', 'Бюджеты'], ['more', '☰', 'Ещё']];
 function render() {
   $('#nav').innerHTML = NAV.map(([k, i, n]) => `<button class="${U.tab === k ? 'on' : ''}" data-act="tab" data-v="${k}"><span>${i}</span>${n}</button>`).join('');
