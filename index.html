@@ -15,11 +15,15 @@
 <style>
 :root{--bg:#121212;--card:#1e1e1e;--card2:#262626;--text:#fff;--muted:#a3a3a3;--primary:#bb86fc;--expense:#cf6679;--income:#03dac6;--warn:#ffb74d;--line:#303030}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;overscroll-behavior:none;touch-action:pan-x pan-y}
-html{background:#121212}
+html{background:#121212;overscroll-behavior:none;height:-webkit-fill-available;}
+body{margin:0;touch-action:pan-x pan-y;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;}
 .sheet{overscroll-behavior:contain}
-body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px}
-#app{max-width:480px;margin:0 auto;padding:calc(16px + env(safe-area-inset-top)) 16px calc(150px + env(safe-area-inset-bottom))}
+
+#app{
+  max-width:480px;margin:0 auto;
+  padding:calc(16px + env(safe-area-inset-top)) 16px calc(150px + env(safe-area-inset-bottom));
+  width:100%;flex:1;
+}
 h1{font-size:22px;margin:0 0 14px}
 h3{font-size:16px;margin:22px 0 10px;font-weight:600}
 .muted{color:var(--muted)}
@@ -165,9 +169,8 @@ details.faq .body li{margin-bottom:4px}
 
 /* 2. Для устройств с мышью (ПК, ноутбуки) */
 @media (pointer: fine) {
-  /* Красивая горизонтальная полоса под счетами на главной */
   .accs {
-    padding-bottom: 8px; /* Место под полосу */
+    padding-bottom: 8px;
     scrollbar-width: thin;
     scrollbar-color: #4a4a4a transparent;
   }
@@ -176,14 +179,12 @@ details.faq .body li{margin-bottom:4px}
   .accs::-webkit-scrollbar-thumb { background: #4a4a4a; border-radius: 10px; }
   .accs::-webkit-scrollbar-thumb:hover { background: #666; }
 
-  /* В модальных окнах (шторках) ПК скрываем вертикальные полосы */
   .sheet {
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
   .sheet::-webkit-scrollbar { display: none; }
 
-  /* В списке выбора ПК скрываем вертикальные полосы */
   #pickov .plist {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -205,6 +206,7 @@ details.faq .body li{margin-bottom:4px}
 'use strict';
 const NATIVE = !!(window.Capacitor && Capacitor.isNativePlatform && Capacitor.isNativePlatform());
 const IS_MOBILE = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 /* ============ Хранилище: IndexedDB ============ */
 const DB_NAME = 'MoneyKeeperDB';
@@ -411,9 +413,8 @@ function flash(msg, ms = 2000) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
 const armBack = () => history.pushState({ app: 1 }, '');
-const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent || '') || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const IS_STANDALONE = navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-const TRAP = !IS_IOS || IS_STANDALONE;
+const TRAP = !isIOS || IS_STANDALONE;
 if (TRAP) history.replaceState({ root: 1 }, '');
 if (TRAP) document.addEventListener('click', armBack, { capture: true, once: true });
 window.addEventListener('popstate', () => {
@@ -422,7 +423,7 @@ window.addEventListener('popstate', () => {
   if (!(history.state && history.state.root)) return;
   if (U.statCat) { U.statCat = null; render(); armBack(); return; }
   if (U.sub) { U.sub = null; render(); armBack(); return; }
-  if (IS_IOS) { armBack(); return; }
+  if (isIOS) { armBack(); return; }
   const t = Date.now();
   if (t - lastBack < 2000) { history.back(); return; }
   lastBack = t; flash('Нажмите «Назад» ещё раз, чтобы выйти'); armBack();
@@ -1107,8 +1108,23 @@ async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
   const ext = name.slice(name.lastIndexOf('.'));
 
-  // 1. Через File System Access API (ПК и поддерживающие браузеры)
-  if (window.showSaveFilePicker) {
+  // 1. Web Share API (Идеально для iOS)
+  if (isIOS && navigator.share) {
+    try {
+      const file = new File([text], name, { type: baseMime });
+      await navigator.share({
+        files: [file],
+        title: 'Резервная копия бюджета'
+      });
+      return 'saved';
+    } catch (e) {
+      if (e.name === 'AbortError') return 'cancelled';
+      console.warn('iOS Share failed:', e);
+    }
+  }
+
+  // 2. Через File System Access API (ПК и поддерживающие браузеры)
+  if (window.showSaveFilePicker && !isIOS) {
     try {
       const h = await window.showSaveFilePicker({ 
         suggestedName: name, 
@@ -1124,7 +1140,7 @@ async function saveFile(name, text, mime) {
     }
   }
 
-  // 2. Системное окно сохранения для Huawei PWA и заблокированных систем
+  // 3. Системное окно сохранения для Android, Huawei PWA и заблокированных систем
   const result = await huaweiAppDialog(name, text, baseMime);
   return result;
 }
@@ -1136,7 +1152,7 @@ function huaweiAppDialog(name, text, baseMime) {
     const root = modal(`
       <h2>Сохранение резервной копии</h2>
       <div class="sub" style="white-space:normal;line-height:1.55;margin-top:8px">
-        Оболочка PWA блокирует прямое скачивание файлов. Используйте один из способов:
+        Браузер блокирует прямое скачивание. Используйте один из способов:
       </div>
       
       <a href="${dataUri}" download="${name}" target="_blank" class="btn" id="hw_download" style="display:block;text-align:center;text-decoration:none;line-height:normal;box-sizing:border-box;margin-top:14px;">
