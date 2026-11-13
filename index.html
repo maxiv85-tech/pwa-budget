@@ -15,6 +15,7 @@
 <style>
 :root{--bg:#121212;--card:#1e1e1e;--card2:#262626;--text:#fff;--muted:#a3a3a3;--primary:#bb86fc;--expense:#cf6679;--income:#03dac6;--warn:#ffb74d;--line:#303030}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+/* ИСПРАВЛЕНО: Вернули overscroll-behavior: none для body */
 html{background:#121212;overscroll-behavior:none;height:-webkit-fill-available;}
 body{margin:0;overscroll-behavior:none;touch-action:pan-x pan-y;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;}
 .sheet{overscroll-behavior:contain}
@@ -354,23 +355,17 @@ function flash(msg, ms = 2000) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
 const armBack = () => history.pushState({ app: 1 }, '');
-
-// ИСПРАВЛЕНИЕ: Включаем перехват истории (TRAP) для всех платформ, чтобы iOS не выходил из приложения
-const TRAP = true;
+const IS_STANDALONE = navigator.standalone === true || !!(window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+const TRAP = !isIOS || IS_STANDALONE;
 if (TRAP) history.replaceState({ root: 1 }, '');
 if (TRAP) document.addEventListener('click', armBack, { capture: true, once: true });
-
 window.addEventListener('popstate', () => {
   if (pickerEl) { closePicker(); history.pushState({ m: 1 }, ''); return; }
   if (modalOpen) { modalOpen = false; $('#modal').classList.remove('open'); $('#modal').innerHTML = ''; return; }
-  
-  // ИСПРАВЛЕНИЕ: Проверяем подразделы ДО проверки root. Теперь iOS будет закрывать Счета/Категории, а не выходить на главную.
+  if (!(history.state && history.state.root)) return;
   if (U.statCat) { U.statCat = null; render(); armBack(); return; }
   if (U.sub) { U.sub = null; render(); armBack(); return; }
-  
-  if (!(history.state && history.state.root)) return;
   if (isIOS) { armBack(); return; }
-  
   const t = Date.now();
   if (t - lastBack < 2000) { history.back(); return; }
   lastBack = t; flash('Нажмите «Назад» ещё раз, чтобы выйти'); armBack();
