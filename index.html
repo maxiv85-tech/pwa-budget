@@ -354,8 +354,6 @@ function flash(msg, ms = 2000) {
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
 const armBack = () => history.pushState({ app: 1 }, '');
-
-// ИСПРАВЛЕНИЕ: Включаем перехват истории (TRAP) для всех платформ, чтобы iOS не выходил из приложения
 const TRAP = true;
 if (TRAP) history.replaceState({ root: 1 }, '');
 if (TRAP) document.addEventListener('click', armBack, { capture: true, once: true });
@@ -363,14 +361,10 @@ if (TRAP) document.addEventListener('click', armBack, { capture: true, once: tru
 window.addEventListener('popstate', () => {
   if (pickerEl) { closePicker(); history.pushState({ m: 1 }, ''); return; }
   if (modalOpen) { modalOpen = false; $('#modal').classList.remove('open'); $('#modal').innerHTML = ''; return; }
-  
-  // ИСПРАВЛЕНИЕ: Проверяем подразделы ДО проверки root. Теперь iOS будет закрывать Счета/Категории, а не выходить на главную.
   if (U.statCat) { U.statCat = null; render(); armBack(); return; }
   if (U.sub) { U.sub = null; render(); armBack(); return; }
-  
   if (!(history.state && history.state.root)) return;
   if (isIOS) { armBack(); return; }
-  
   const t = Date.now();
   if (t - lastBack < 2000) { history.back(); return; }
   lastBack = t; flash('Нажмите «Назад» ещё раз, чтобы выйти'); armBack();
@@ -726,7 +720,7 @@ function viewStats() {
   return `<h1>Статистика</h1>${monthBar()}
     <div class="tabs"><button class="e ${type === 'expense' ? 'on' : ''}" data-act="statType" data-v="expense">Расходы</button><button class="i ${type === 'income' ? 'on' : ''}" data-act="statType" data-v="income">Доходы</button></div>
     <div class="card">${donut}</div>
-    <div class="legend">${arr.map(x => `<div class="tx" data-act="statCat" data-id="${esc(x.k)}"><span class="dot" style="background:${x.c ? x.c.color : '#666'}"></span><div class="grow name">${x.c ? esc(x.c.icon) + ' ' + esc(x.c.name) : 'Без категории'}</div><div class="muted">${x.pct}%</div><div class="amt">${fmt(x.v)}</div><span class="muted">›</span></div>`).join('')}</div>
+    <div class="legend">${arr.map(x => `<div class="tx" data-act="statCat" data-id="${esc(x.k)}"><span class="dot" style="background:${x.c ? x.c.color : '#666'}"></span><div class="grow name">${x.c ? esc(x.c.icon) + ' ' + esc(x.c.name) : 'Без категории'}</div><div class="muted">${x.pct === 0 ? '< 1' : x.pct}%</div><div class="amt">${fmt(x.v)}</div><span class="muted">›</span></div>`).join('')}</div>
     <h3>Динамика за 6 месяцев</h3>
     <div class="card"><svg viewBox="0 0 320 145" style="width:100%">${bars}</svg>
       <div class="row" style="justify-content:center;font-size:12px"><span class="dot" style="background:#03dac6"></span>Доходы <span class="dot" style="background:#cf6679;margin-left:10px"></span>Расходы</div></div>`;
@@ -1045,12 +1039,10 @@ async function saveFile(name, text, mime) {
   const baseMime = String(mime).split(';')[0];
   const ext = name.slice(name.lastIndexOf('.'));
 
-  // 1. iOS: Используем ТОЛЬКО Web Share API и передаем ТОЛЬКО файл (без title)
   if (isIOS) {
     if (navigator.canShare && navigator.canShare({ files: [new File([text], name, { type: baseMime })] })) {
       try {
         const file = new File([text], name, { type: baseMime });
-        // Убрали title: '...', чтобы iOS не создавал лишний .txt файл
         await navigator.share({ files: [file] });
         return 'saved';
       } catch (e) {
@@ -1060,7 +1052,6 @@ async function saveFile(name, text, mime) {
     return await huaweiAppDialog(name, text, baseMime, true);
   }
 
-  // 2. File System API для ПК
   if (window.showSaveFilePicker && !isIOS) {
     try {
       const h = await window.showSaveFilePicker({ 
@@ -1077,7 +1068,6 @@ async function saveFile(name, text, mime) {
     }
   }
 
-  // 3. Android и остальное
   const result = await huaweiAppDialog(name, text, baseMime, false);
   return result;
 }
