@@ -217,7 +217,7 @@ const mkey = (y, m) => `${y}-${pad(m + 1)}`;
 const catOf = id => S.categories.find(c => c.id === id);
 const accOf = id => S.accounts.find(a => a.id === id);
 const upsert = (arr, o) => { const i = arr.findIndex(x => x.id === o.id); if (i >= 0) arr[i] = o; else arr.push(o); };
-const toast = m => flash(m);
+const toast = m => alert(m);
 
 function dateLabel(s) {
   const t = today(), y = dstr(new Date(Date.now() - 864e5));
@@ -357,24 +357,18 @@ function closeModalUI() {
 }
 function closeModal() {
   if (!modalOpen) return;
-  if (!NATIVE && history.state) {
-    if (history.state.page === 'picker') { skipHomeFlash = true; history.go(-2); return; }
-    if (history.state.page === 'modal') { history.back(); return; }
-  }
-  closeModalUI();
+  if (!NATIVE && history.state && history.state.page === 'modal') history.back();
+  else closeModalUI();
 }
 
-let lastBack = 0, toastTimer, skipHomeFlash = false;
+let lastBack = 0, toastTimer;
 function flash(msg, ms = 2000) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
 
 // Инициализация истории для PWA
-if (!NATIVE) {
-  history.replaceState({ page: 'home' }, '');
-  if (!isIOS) history.pushState({ page: 'home' }, '');
-}
+if (!NATIVE) history.replaceState({ page: 'home' }, '');
 
 window.addEventListener('popstate', () => {
   const st = history.state || { page: 'home' };
@@ -388,7 +382,6 @@ window.addEventListener('popstate', () => {
     
     // Двойной клик для выхода (Android/PC)
     if (!isIOS) {
-      if (skipHomeFlash) { skipHomeFlash = false; return; }
       const t = Date.now();
       if (t - lastBack < 2000) {
         history.back();
@@ -955,7 +948,7 @@ function viewMore() {
 }
 const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="subBack">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
-const APP_VERSION = '1.1.6';
+const APP_VERSION = '1.1.5';
 
 function sendMode() {
   if (!('serviceWorker' in navigator)) return;
