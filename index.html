@@ -289,14 +289,14 @@ async function runRecurring() {
 
 let modalOpen = false;
 let pickerEl = null;
-function closePickerUI() { if (pickerEl) { pickerEl.remove(); pickerEl = null; } }
+function closePicker() { if (pickerEl) { pickerEl.remove(); pickerEl = null; } }
 function splitOpt(txt) {
   const t = String(txt).trim(), cp = t.codePointAt(0);
   if (cp >= 0x2190) { const m = t.match(/^(\S+)\s+([\s\S]*)$/); if (m) return { ic: m[1], name: m[2] }; }
   return { ic: '', name: t };
 }
 function openPicker(sel) {
-  closePickerUI();
+  closePicker();
   const ov = document.createElement('div'); ov.id = 'pickov';
   const list = document.createElement('div'); list.className = 'plist';
   [...sel.options].forEach(o => {
@@ -307,21 +307,15 @@ function openPicker(sel) {
     const t = document.createElement('span'); t.className = 't'; t.textContent = p.name; row.appendChild(t);
     const r = document.createElement('span'); r.className = 'r'; row.appendChild(r);
     row.onclick = () => {
-      if (sel.value !== o.value) { sel.value = o.value; sel.dispatchEvent(new Event('change', { bubbles: true })); }
       closePicker();
+      if (sel.value !== o.value) { sel.value = o.value; sel.dispatchEvent(new Event('change', { bubbles: true })); }
     };
     list.appendChild(row);
   });
   ov.appendChild(list);
   ov.addEventListener('click', e => { if (e.target === ov) closePicker(); });
   document.body.appendChild(ov); pickerEl = ov;
-  if (!NATIVE) history.pushState({ page: 'picker' }, '');
   const on = list.querySelector('.on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'center' });
-}
-function closePicker() {
-  if (!pickerEl) return;
-  if (!NATIVE && history.state && history.state.page === 'picker') history.back();
-  else closePickerUI();
 }
 function enhanceSelects(root) {
   root.querySelectorAll('select').forEach(sel => {
@@ -342,86 +336,38 @@ function modal(html) {
   const closeBtn = !IS_MOBILE ? `<button class="close-btn" data-act="backdrop" aria-label="Закрыть">&times;</button>` : '';
   m.innerHTML = `<div class="sheet" data-stop="1">${closeBtn}${html}</div>`;
   m.classList.add('open');
-  if (!modalOpen) {
-    if (!NATIVE) history.pushState({ page: 'modal' }, '');
-    modalOpen = true;
-  }
+  if (!modalOpen) { if (!NATIVE) history.pushState({ m: 1 }, ''); modalOpen = true; }
   enhanceSelects(m.firstChild);
   return m.firstChild;
 }
-function closeModalUI() {
-  closePickerUI();
+function closeModal() {
+  closePicker();
+  if (!modalOpen) return;
   modalOpen = false;
   $('#modal').classList.remove('open');
   $('#modal').innerHTML = '';
+  if (!NATIVE && history.state && history.state.m) history.back();
 }
-function closeModal() {
-  if (!modalOpen) return;
-  if (!NATIVE && history.state && history.state.page === 'modal') history.back();
-  else closeModalUI();
-}
-
 let lastBack = 0, toastTimer;
 function flash(msg, ms = 2000) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), ms);
 }
-
-// Инициализация истории для PWA
-if (!NATIVE) history.replaceState({ page: 'home' }, '');
+const armBack = () => history.pushState({ app: 1 }, '');
+const TRAP = true;
+if (TRAP) history.replaceState({ root: 1 }, '');
+if (TRAP) document.addEventListener('click', armBack, { capture: true, once: true });
 
 window.addEventListener('popstate', () => {
-  const st = history.state || { page: 'home' };
-
-  // Синхронизируем UI с тем состоянием, куда вернулся браузер
-  if (st.page === 'home') {
-    if (pickerEl) closePickerUI();
-    if (modalOpen) closeModalUI();
-    U.tab = 'home'; U.sub = null; U.statCat = null;
-    render();
-    
-    // Двойной клик для выхода (Android/PC)
-    if (!isIOS) {
-      const t = Date.now();
-      if (t - lastBack < 2000) {
-        history.back();
-      } else {
-        lastBack = t;
-        flash('Нажмите «Назад» ещё раз, чтобы выйти');
-        setTimeout(() => { if (!NATIVE) history.pushState({ page: 'home' }, ''); }, 50);
-      }
-    }
-    return;
-  }
-
-  if (st.page === 'tab') {
-    if (pickerEl) closePickerUI();
-    if (modalOpen) closeModalUI();
-    U.tab = st.tab; U.sub = null; U.statCat = null;
-    render();
-    return;
-  }
-
-  if (st.page === 'sub') {
-    if (pickerEl) closePickerUI();
-    if (modalOpen) closeModalUI();
-    U.tab = st.tab; U.sub = st.sub; U.statCat = null;
-    render();
-    return;
-  }
-
-  if (st.page === 'statCat') {
-    if (pickerEl) closePickerUI();
-    if (modalOpen) closeModalUI();
-    U.tab = st.tab; U.sub = st.sub; U.statCat = st.statCat;
-    render();
-    return;
-  }
-
-  if (st.page === 'modal') {
-    closePickerUI();
-    return;
-  }
+  if (pickerEl) { closePicker(); history.pushState({ m: 1 }, ''); return; }
+  if (modalOpen) { modalOpen = false; $('#modal').classList.remove('open'); $('#modal').innerHTML = ''; return; }
+  if (U.statCat) { U.statCat = null; render(); armBack(); return; }
+  if (U.sub) { U.sub = null; render(); armBack(); return; }
+  if (!(history.state && history.state.root)) return;
+  if (isIOS) { armBack(); return; }
+  const t = Date.now();
+  if (t - lastBack < 2000) { history.back(); return; }
+  lastBack = t; flash('Нажмите «Назад» ещё раз, чтобы выйти'); armBack();
 });
 
 function pickEmoji(sel, cur, key) {
@@ -517,7 +463,7 @@ function openTxModal(t, opt = {}) {
         if (t && t.recId) o.recId = t.recId;
         await dbPut('transactions', o); upsert(S.transactions, o);
       }
-      closeModal();
+      closeModal(); render();
     };
     const del = root.querySelector('#f_del');
     if (del) del.onclick = async () => {
@@ -525,7 +471,7 @@ function openTxModal(t, opt = {}) {
       const st = rec ? 'recurring' : 'transactions';
       await dbDel(st, t.id);
       S[st] = S[st].filter(x => x.id !== t.id);
-      closeModal();
+      closeModal(); render();
     };
   }
   draw();
@@ -550,7 +496,7 @@ function openAccModal(a) {
     const o = { ...cur, name, initial: r2(parseFloat(root.querySelector('#a_init').value) || 0), limit: r2(parseFloat(root.querySelector('#a_lim').value) || 0), excluded: root.querySelector('#a_kind').value === 'credit' };
     if (!a) o.order = Math.max(0, ...S.accounts.map(x => x.order ?? x.id)) + 1;
     await dbPut('accounts', o); upsert(S.accounts, o); sortAccounts();
-    closeModal();
+    closeModal(); render();
   };
   const del = root.querySelector('#a_del');
   if (del) del.onclick = async () => {
@@ -561,7 +507,7 @@ function openAccModal(a) {
     for (const r of S.recurring.filter(r => r.accountId === a.id || r.toAccountId === a.id)) await dbDel('recurring', r.id);
     S.recurring = S.recurring.filter(r => r.accountId !== a.id && r.toAccountId !== a.id);
     await dbDel('accounts', a.id); S.accounts = S.accounts.filter(x => x.id !== a.id);
-    closeModal();
+    closeModal(); render();
   };
 }
 
@@ -581,7 +527,7 @@ function openCatModal(c) {
     if (!name) return toast('Введите название');
     const o = { ...cur, name };
     await dbPut('categories', o); upsert(S.categories, o);
-    closeModal();
+    closeModal(); render();
   };
   const del = root.querySelector('#c_del');
   if (del) del.onclick = async () => {
@@ -589,7 +535,7 @@ function openCatModal(c) {
     await dbDel('categories', c.id); S.categories = S.categories.filter(x => x.id !== c.id);
     for (const b of S.budgets.filter(b => b.categoryId === c.id)) await dbDel('budgets', b.id);
     S.budgets = S.budgets.filter(b => b.categoryId !== c.id);
-    closeModal();
+    closeModal(); render();
   };
 }
 
@@ -610,10 +556,10 @@ function openBudgetModal(b) {
     const v = root.querySelector('#b_cat').value;
     const o = { ...cur, categoryId: v === 'all' ? 'all' : Number(v), limit };
     await dbPut('budgets', o); upsert(S.budgets, o);
-    closeModal();
+    closeModal(); render();
   };
   const del = root.querySelector('#b_del');
-  if (del) del.onclick = async () => { await dbDel('budgets', b.id); S.budgets = S.budgets.filter(x => x.id !== b.id); closeModal(); };
+  if (del) del.onclick = async () => { await dbDel('budgets', b.id); S.budgets = S.budgets.filter(x => x.id !== b.id); closeModal(); render(); };
 }
 
 function openSettings() {
@@ -630,7 +576,7 @@ function openSettings() {
   root.querySelector('#s_save').onclick = async () => {
     S.settings.currency = root.querySelector('#s_cur').value.trim() || '₽';
     S.settings.updateMode = root.querySelector('#s_upd').value === 'auto' ? 'auto' : 'manual';
-    await saveSettings(); sendMode(); closeModal();
+    await saveSettings(); sendMode(); closeModal(); render();
   };
 }
 
@@ -946,7 +892,7 @@ function viewMore() {
   if (U.sub === 'about') return viewAbout();
   return `    ${[['accounts', '🏦', 'Счета'], ['categories', '🏷️', 'Категории'], ['recurring', '🔁', 'Регулярные платежи'], ['data', '💾', 'Данные и резервная копия'], ['settings', '⚙️', 'Настройки'], ['help', '📖', 'Справка и сценарии'], ['about', 'ℹ️', 'О программе']].map(([k, i, n]) => `<div class="menu" data-act="sub" data-v="${k}"><div class="ico">${i}</div><div class="grow name">${n}</div><span class="muted">›</span></div>`).join('')}`;
 }
-const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="subBack">‹</button><h1 style="margin:0">${t}</h1></div>`;
+const back = t => `<div class="row" style="margin-bottom:14px"><button class="iconbtn" data-act="sub" data-v="">‹</button><h1 style="margin:0">${t}</h1></div>`;
 
 const APP_VERSION = '1.1.5';
 
@@ -1228,43 +1174,12 @@ function render() {
 }
 
 const ACT = {
-  tab: d => {
-    if (U.tab !== d.v) {
-      U.tab = d.v; U.sub = null; U.statCat = null; scrollTo(0, 0); render();
-      if (!NATIVE) history.pushState({ page: 'tab', tab: d.v }, '');
-    }
-  },
-  goStats: d => {
-    if (U.tab !== 'stats') {
-      U.monthX = { ...U.month }; U.tab = 'stats'; U.sub = null; U.statCat = null; U.statType = d.v; scrollTo(0, 0); render();
-      if (!NATIVE) history.pushState({ page: 'tab', tab: 'stats' }, '');
-    }
-  },
-  statCat: d => {
-    if (!U.statCat) {
-      U.statCat = { id: (d.id === 'null' || d.id === 'undefined') ? null : Number(d.id) }; scrollTo(0, 0); render();
-      if (!NATIVE) history.pushState({ page: 'statCat', tab: U.tab, statCat: U.statCat }, '');
-    }
-  },
-  statBack: () => {
-    if (!NATIVE) history.back();
-    else { U.statCat = null; render(); }
-  },
-  sub: d => {
-    if (d.v === 'settings') { U.sub = null; return openSettings(); }
-    if (U.sub !== d.v) {
-      U.sub = d.v || null; scrollTo(0, 0); render();
-      if (!NATIVE && d.v) history.pushState({ page: 'sub', tab: U.tab, sub: d.v }, '');
-    }
-  },
-  subBack: () => {
-    if (!NATIVE) history.back();
-    else { U.sub = null; render(); }
-  },
-  goData: () => {
-    U.tab = 'more'; U.sub = 'data'; scrollTo(0, 0); render();
-    if (!NATIVE) history.pushState({ page: 'sub', tab: 'more', sub: 'data' }, '');
-  },
+  tab: d => { U.tab = d.v; U.sub = null; U.statCat = null; scrollTo(0, 0); render(); },
+  goStats: d => { U.monthX = { ...U.month }; U.tab = 'stats'; U.sub = null; U.statCat = null; U.statType = d.v; scrollTo(0, 0); render(); },
+  statCat: d => { U.statCat = { id: (d.id === 'null' || d.id === 'undefined') ? null : Number(d.id) }; scrollTo(0, 0); render(); },
+  statBack: () => { U.statCat = null; render(); },
+  sub: d => { U.sub = d.v || null; if (d.v === 'settings') { U.sub = null; return openSettings(); } scrollTo(0, 0); render(); },
+  goData: () => { U.tab = 'more'; U.sub = 'data'; render(); },
   prevM: () => { const m = M(); if (--m.m < 0) { m.m = 11; m.y--; } render(); },
   nextM: () => { const m = M(); if (++m.m > 11) { m.m = 0; m.y++; } render(); },
   addTx: () => U.tab === 'more' && U.sub === 'recurring' ? openTxModal(null, { recurring: true }) : openTxModal(null),
@@ -1337,11 +1252,10 @@ if (NATIVE) {
   if (P.App) {
     let lastBackN = 0;
     P.App.addListener('backButton', () => {
-      if (pickerEl) return closePickerUI();
-      if (modalOpen) return closeModalUI();
+      if (pickerEl) return closePicker();
+      if (modalOpen) return closeModal();
       if (U.statCat) { U.statCat = null; return render(); }
       if (U.sub) { U.sub = null; return render(); }
-      if (U.tab !== 'home') { U.tab = 'home'; return render(); }
       const t = Date.now();
       if (t - lastBackN < 2000) return P.App.exitApp();
       lastBackN = t; flash('Нажмите «Назад» ещё раз, чтобы выйти');
